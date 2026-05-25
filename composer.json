@@ -1,0 +1,39 @@
+{
+    "name": "fissible/attest-laravel",
+    "description": "Laravel adapter for fissible/attest: Eloquent storage, console commands, scheduled anchoring, events.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["laravel", "audit", "tamper-evident", "fissible"],
+    "authors": [
+        {"name": "Allen McCabe", "email": "allenmccabe@gmail.com"}
+    ],
+    "require": {
+        "php": "^8.2",
+        "fissible/attest": "@dev",
+        "illuminate/support": "^11.0 || ^12.0",
+        "illuminate/database": "^11.0 || ^12.0",
+        "illuminate/console": "^11.0 || ^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0 || ^10.0",
+        "phpunit/phpunit": "^11.0",
+        "phpstan/phpstan": "^1.10"
+    },
+    "autoload": {
+        "psr-4": {"Fissible\\AttestLaravel\\": "src/"}
+    },
+    "autoload-dev": {
+        "psr-4": {"Fissible\\AttestLaravel\\Tests\\": "tests/"}
+    },
+    "extra": {
+        "laravel": {
+            "providers": ["Fissible\\AttestLaravel\\AttestServiceProvider"],
+            "aliases": {"Attest": "Fissible\\AttestLaravel\\Facades\\Attest"}
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
