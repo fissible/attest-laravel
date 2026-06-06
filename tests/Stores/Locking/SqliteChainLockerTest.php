@@ -51,24 +51,9 @@ final class SqliteChainLockerTest extends TestCase
             'CI-fragile under in-memory SQLite + persistent PDO: BEGIN IMMEDIATE silently '
             . 'elides into a Testbench outer-transaction state we cannot detect via '
             . 'PDO::inTransaction(); rollback semantics are still covered by the '
-            . 'ChainStoreContractTests::test_append_rolls_back_on_callback_throw assertion '
-            . 'that runs across all three drivers via the contract suite.',
+            . 'ChainStoreContractTests append/rollback assertions that run across all '
+            . 'three drivers via the contract suite.',
         );
-        // Original test body preserved below for reference; it is still a valid
-        // documentation of intent and runs locally where PDO state is clean.
-        // @phpstan-ignore-next-line
-    {
-        $locker = new SqliteChainLocker(DB::connection(), timeoutSeconds: 10);
-        try {
-            $locker->withChainLock('tenant:5', function () {
-                DB::statement('INSERT INTO attest_lock_probe DEFAULT VALUES');
-                throw new \RuntimeException('boom');
-            });
-            self::fail('expected exception');
-        } catch (\RuntimeException $e) {
-            self::assertSame('boom', $e->getMessage());
-        }
-        self::assertSame(0, DB::table('attest_lock_probe')->count());
     }
 
     public function test_sets_pragma_busy_timeout_in_milliseconds(): void
