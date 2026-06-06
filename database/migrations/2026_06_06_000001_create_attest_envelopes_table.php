@@ -12,7 +12,10 @@ return new class extends Migration {
             $t->id();
             $t->string('chain_id', 191);
             $t->unsignedBigInteger('sequence');
-            $t->char('envelope_id', 26);
+            // string (varchar) not char — Postgres CHAR(N) pads with trailing
+            // spaces, which breaks envelope_id round-trip and the completed
+            // envelope-id comparison in EloquentAnchorClaimStore::complete.
+            $t->string('envelope_id', 26);
             $t->string('prev_hash', 80)->nullable();
             $t->string('self_hash', 80);
             $t->string('key_id', 191);

@@ -17,6 +17,20 @@ final class SqliteChainLockerTest extends TestCase
         if (getenv('DB_CONNECTION') !== false && getenv('DB_CONNECTION') !== 'sqlite') {
             $this->markTestSkipped('SQLite locker only runs against sqlite');
         }
+        // Drain any stale transaction the previous test (or test-fixture
+        // machinery) might have left on the persistent PDO connection.
+        // Without this, BEGIN IMMEDIATE inside the locker silently elides
+        // into an outer transaction, and our defensive nested-txn branch
+        // can't rollback what we didn't open.
+        $pdo = DB::connection()->getPdo();
+        while ($pdo->inTransaction()) {
+            try {
+                $pdo->rollBack();
+            } catch (\Throwable) {
+                break;
+            }
+        }
+        Schema::dropIfExists('attest_lock_probe');
         Schema::create('attest_lock_probe', fn ($t) => $t->id());
     }
 
