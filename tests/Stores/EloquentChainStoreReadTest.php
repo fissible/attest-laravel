@@ -4,13 +4,25 @@ declare(strict_types=1);
 namespace Fissible\AttestLaravel\Tests\Stores;
 
 use Fissible\AttestLaravel\Stores\EloquentChainStore;
+use Fissible\AttestLaravel\Stores\Locking\SqliteChainLocker;
+use Fissible\AttestLaravel\Tests\Contract\ChainStoreContractTests;
 use Fissible\AttestLaravel\Tests\TestCase;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
 
 final class EloquentChainStoreReadTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseMigrations;
+    use ChainStoreContractTests;
+
+    protected function makeStore(): \Fissible\Attest\Chain\ChainStore
+    {
+        return new EloquentChainStore(
+            DB::connection(),
+            new SqliteChainLocker(DB::connection(), 5),
+            $this->dummyEvents(),
+        );
+    }
 
     private function insertCanonical(string $chainId, int $seq, string $raw): void
     {

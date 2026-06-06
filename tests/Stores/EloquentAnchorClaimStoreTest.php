@@ -5,6 +5,7 @@ namespace Fissible\AttestLaravel\Tests\Stores;
 
 use Fissible\Attest\Anchor\AnchorClaim;
 use Fissible\AttestLaravel\Stores\EloquentAnchorClaimStore;
+use Fissible\AttestLaravel\Tests\Contract\AnchorClaimStoreContractTests;
 use Fissible\AttestLaravel\Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,12 @@ use Illuminate\Support\Facades\DB;
 final class EloquentAnchorClaimStoreTest extends TestCase
 {
     use RefreshDatabase;
+    use AnchorClaimStoreContractTests;
+
+    protected function store(): \Fissible\Attest\Anchor\AnchorClaimStore
+    {
+        return new EloquentAnchorClaimStore(DB::connection());
+    }
 
     private function makeClaim(string $by = 'host:1:abc'): AnchorClaim
     {

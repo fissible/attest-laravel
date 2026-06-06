@@ -63,7 +63,7 @@ final class EloquentAnchorClaimStore implements AnchorClaimStore
             return;
         }
         throw new \RuntimeException(sprintf(
-            'AnchorClaim %s already completed with envelope_id %s; refusing to overwrite with %s',
+            'AnchorClaim %s already completed with a different envelope (existing: %s, requested: %s)',
             $anchorId,
             $existing->completed_envelope_id,
             $envelopeId,
