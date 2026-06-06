@@ -32,7 +32,7 @@ final class EloquentChainStoreReadTest extends TestCase
     public function test_exists_is_true_for_known_chain(): void
     {
         $this->insertCanonical('c', 1, $this->validEnvelope(1));
-        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker());
+        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker(), $this->dummyEvents());
         self::assertTrue($store->exists('c'));
         self::assertFalse($store->exists('other'));
     }
@@ -42,7 +42,7 @@ final class EloquentChainStoreReadTest extends TestCase
         $this->insertCanonical('c1', 1, $this->validEnvelope(1, 'c1'));
         $this->insertCanonical('c1', 2, $this->validEnvelope(2, 'c1'));
         $this->insertCanonical('c2', 1, $this->validEnvelope(1, 'c2'));
-        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker());
+        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker(), $this->dummyEvents());
         self::assertEqualsCanonicalizing(['c1', 'c2'], iterator_to_array($store->listChains(), false));
     }
 
@@ -50,7 +50,7 @@ final class EloquentChainStoreReadTest extends TestCase
     {
         $this->insertCanonical('c', 1, $this->validEnvelope(1));
         $this->insertCanonical('c', 2, $this->validEnvelope(2));
-        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker());
+        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker(), $this->dummyEvents());
         $tail = $store->tail('c');
         self::assertNotNull($tail);
         self::assertSame(2, $tail->envelope->seq);
@@ -61,7 +61,7 @@ final class EloquentChainStoreReadTest extends TestCase
         $this->insertCanonical('c', 1, $this->validEnvelope(1));
         $this->insertCanonical('c', 2, $this->validEnvelope(2));
         $this->insertCanonical('c', 3, $this->validEnvelope(3));
-        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker());
+        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker(), $this->dummyEvents());
         $envs = iterator_to_array($store->readRange('c', 2, 3), false);
         self::assertCount(2, $envs);
         self::assertSame(2, $envs[0]->envelope->seq);
@@ -72,7 +72,7 @@ final class EloquentChainStoreReadTest extends TestCase
     {
         $raw = $this->validEnvelope(1);
         $this->insertCanonical('c', 1, $raw);
-        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker());
+        $store = new EloquentChainStore(DB::connection(), $this->dummyLocker(), $this->dummyEvents());
         $rows = iterator_to_array($store->readRawRange('c', 1), false);
         self::assertSame([$raw], $rows);
     }
@@ -109,5 +109,10 @@ final class EloquentChainStoreReadTest extends TestCase
                 throw new \LogicException('locker should not be touched on read paths');
             }
         };
+    }
+
+    private function dummyEvents(): \Illuminate\Contracts\Events\Dispatcher
+    {
+        return new \Illuminate\Events\Dispatcher();
     }
 }
