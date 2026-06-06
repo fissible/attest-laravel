@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace Fissible\AttestLaravel\Tests\Stores;
 
 use Fissible\AttestLaravel\Stores\EloquentChainStore;
+use Fissible\AttestLaravel\Stores\Locking\ChainLocker;
+use Fissible\AttestLaravel\Stores\Locking\MysqlChainLocker;
+use Fissible\AttestLaravel\Stores\Locking\PostgresChainLocker;
 use Fissible\AttestLaravel\Stores\Locking\SqliteChainLocker;
 use Fissible\AttestLaravel\Tests\Contract\ChainStoreContractTests;
 use Fissible\AttestLaravel\Tests\TestCase;
@@ -17,11 +20,18 @@ final class EloquentChainStoreReadTest extends TestCase
 
     protected function makeStore(): \Fissible\Attest\Chain\ChainStore
     {
-        return new EloquentChainStore(
-            DB::connection(),
-            new SqliteChainLocker(DB::connection(), 5),
-            $this->dummyEvents(),
-        );
+        $conn = DB::connection();
+        return new EloquentChainStore($conn, $this->lockerFor($conn), $this->dummyEvents());
+    }
+
+    private function lockerFor(\Illuminate\Database\ConnectionInterface $conn): ChainLocker
+    {
+        return match ($conn->getDriverName()) {
+            'sqlite' => new SqliteChainLocker($conn, 5),
+            'mysql' => new MysqlChainLocker($conn, 5),
+            'pgsql' => new PostgresChainLocker($conn, 5, 50_000),
+            default => throw new \RuntimeException('unsupported driver: ' . $conn->getDriverName()),
+        };
     }
 
     private function insertCanonical(string $chainId, int $seq, string $raw): void

@@ -28,27 +28,37 @@ final class SqliteChainLocker implements ChainLocker
         // is honored.
         $pdo->exec('PRAGMA busy_timeout = ' . ($this->timeoutSeconds * 1000));
 
-        // Laravel's $connection->beginTransaction() starts a *deferred*
-        // transaction and bumps Laravel's transactionLevel counter.
-        // We want BEGIN IMMEDIATE up-front and we don't want Laravel's
-        // counter touched — issue everything via raw PDO.
-        try {
-            $pdo->exec('BEGIN IMMEDIATE');
-        } catch (\PDOException $e) {
-            if (str_contains(strtolower($e->getMessage()), 'database is locked')) {
-                throw new ChainLockUnavailable($chainId);
+        // Only start a transaction if we're not already in one. Testbench
+        // and other Laravel test traits can leave the PDO in a transaction
+        // between tests; SQLite refuses to nest with "cannot start a
+        // transaction within a transaction." When we did NOT start the
+        // transaction, we don't manage commit/rollback either — the outer
+        // caller owns that.
+        $weStartedTransaction = false;
+        if (! $pdo->inTransaction()) {
+            try {
+                // Laravel's $connection->beginTransaction() starts a *deferred*
+                // transaction and bumps Laravel's transactionLevel counter.
+                // We want BEGIN IMMEDIATE up-front and we don't want Laravel's
+                // counter touched — issue everything via raw PDO.
+                $pdo->exec('BEGIN IMMEDIATE');
+                $weStartedTransaction = true;
+            } catch (\PDOException $e) {
+                if (str_contains(strtolower($e->getMessage()), 'database is locked')) {
+                    throw new ChainLockUnavailable($chainId);
+                }
+                throw $e;
             }
-            throw $e;
         }
 
         try {
             $result = $work();
-            if ($pdo->inTransaction()) {
+            if ($weStartedTransaction && $pdo->inTransaction()) {
                 $pdo->commit();
             }
             return $result;
         } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
+            if ($weStartedTransaction && $pdo->inTransaction()) {
                 try {
                     $pdo->rollBack();
                 } catch (\PDOException) {
