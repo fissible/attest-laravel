@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Fissible\AttestLaravel\Tests;
 
 use Fissible\AttestLaravel\AttestServiceProvider;
-use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -19,13 +18,16 @@ abstract class TestCase extends Orchestra
     {
         $driver = getenv('DB_CONNECTION') ?: 'sqlite';
         if (! in_array($driver, ['sqlite', 'mysql', 'pgsql'], true)) {
-            throw new \RuntimeException("Unknown DB_CONNECTION: $driver");
+            throw new \RuntimeException("Unknown DB_CONNECTION: '$driver'. Expected sqlite, mysql, or pgsql.");
         }
         $app['config']->set('database.default', $driver);
         $app['config']->set("database.connections.$driver", $this->driverConfig($driver));
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * @param 'sqlite'|'mysql'|'pgsql' $driver
+     * @return array<string,mixed>
+     */
     private function driverConfig(string $driver): array
     {
         return match ($driver) {
