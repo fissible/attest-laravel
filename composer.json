@@ -9,7 +9,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "fissible/attest": "@dev",
+        "fissible/attest": "^0.4.0-alpha",
         "illuminate/support": "^11.0 || ^12.0",
         "illuminate/database": "^11.0 || ^12.0",
         "illuminate/console": "^11.0 || ^12.0"
@@ -30,7 +30,12 @@
         {
             "type": "path",
             "url": "../attest",
-            "options": {"symlink": false}
+            "options": {
+                "symlink": false,
+                "versions": {
+                    "fissible/attest": "0.4.1-alpha"
+                }
+            }
         }
     ],
     "extra": {
