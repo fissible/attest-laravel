@@ -57,6 +57,9 @@ final class EloquentChainStoreAppendTest extends TestCase
 
     public function test_context_mismatch_throws_and_rolls_back(): void
     {
+        if (getenv('DB_CONNECTION') !== false && getenv('DB_CONNECTION') !== 'sqlite') {
+            $this->markTestSkipped('context mismatch test uses SqliteChainLocker; per-driver tests run via contract suite');
+        }
         Event::fake([EnvelopeRecorded::class]);
         $store = new EloquentChainStore(DB::connection(), new SqliteChainLocker(DB::connection(), 5), Event::getFacadeRoot());
         $kp = KeyPair::generate();
