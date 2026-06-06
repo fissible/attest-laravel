@@ -157,7 +157,7 @@ return [
 ];
 ```
 
-`AttestServiceProvider::register()` reads `config('attest.connection') ?? config('database.default')`, looks up the driver name via `DB::connection($name)->getDriverName()`, and binds the matching `ChainLocker` implementation. `EloquentChainStore` and `EloquentAnchorClaimStore` are bound as singletons against the resolved connection.
+`AttestServiceProvider::register()` reads `config('attest.connection') ?? config('database.default')` — this is the **configured attest connection**, an explicit operator choice, not whatever connection happens to be active at the call site. It looks up the driver name via `DB::connection($name)->getDriverName()` and binds the matching `ChainLocker` implementation. `EloquentChainStore` and `EloquentAnchorClaimStore` are bound as singletons against the resolved connection.
 
 ## 6. Database Schema
 
@@ -242,16 +242,31 @@ final class SqliteChainLocker implements ChainLocker
 {
     public function __construct(
         private readonly ConnectionInterface $connection,
+        private readonly int $timeoutSeconds,
     ) {}
 
     public function withChainLock(string $chainId, callable $work): mixed
     {
         $pdo = $this->connection->getPdo();
+        // Honor lock_timeout_seconds: SQLite's busy_timeout makes
+        // contending BEGIN IMMEDIATE attempts wait (with internal
+        // retries) instead of immediately raising SQLITE_BUSY. The
+        // setting is per-connection and survives until reset.
+        $pdo->exec('PRAGMA busy_timeout = ' . ($this->timeoutSeconds * 1000));
+
         // Laravel's $connection->beginTransaction()/commit() starts a
         // deferred transaction and increments Laravel's transactionLevel.
         // We want BEGIN IMMEDIATE explicitly via PDO so the write lock is
         // held up-front, without confusing Laravel's transaction counter.
-        $pdo->exec('BEGIN IMMEDIATE');
+        try {
+            $pdo->exec('BEGIN IMMEDIATE');
+        } catch (\PDOException $e) {
+            if (str_contains(strtolower($e->getMessage()), 'database is locked')) {
+                throw new ChainLockUnavailable($chainId);
+            }
+            throw $e;
+        }
+
         try {
             $result = $work();
             $pdo->commit();
@@ -266,7 +281,7 @@ final class SqliteChainLocker implements ChainLocker
 
 **SQLite's write lock is database-wide, not per-chain.** There is no finer-grained lock available without WAL+busy-timeout, and even those still serialize writers globally. SQLite is appropriate for single-host / single-writer deployments — application servers, dev environments, single-instance jobs. Multi-writer concurrent throughput on a shared chain requires MySQL or Postgres. Document this in the README and in the package's UPGRADE notes.
 
-`SQLITE_BUSY` from a contending writer surfaces as a `\PDOException`; convert it to `ChainLockUnavailable` if the message matches `database is locked`.
+`PRAGMA busy_timeout` is the SQLite-native way to honor `lock_timeout_seconds`. Without it, contending writers raise `SQLITE_BUSY` immediately and the timeout configuration would be misleading.
 
 ### 7.2 `MysqlChainLocker`
 
@@ -384,56 +399,125 @@ Implements both `ChainStore` (Chunk 1) and `RawChainStore` (Chunk 2).
 ```php
 public function append(string $chainId, callable $buildAndSign): SignedEnvelope
 {
-    return $this->locker->withChainLock($chainId, function () use ($chainId, $buildAndSign) {
-        $tail = $this->tail($chainId);
-        $context = new AppendContext(
-            chainId: $chainId,
-            sequence: $tail === null ? 1 : $tail->envelope->seq + 1,
-            prevHash: $tail?->selfHash(),
-            timestampIso8601: $this->monotonicTimestamp($tail),
-        );
+    // Collect events in a LOCAL list (captured by reference) rather than
+    // on $this. Instance-level pending queues leak across reentrant or
+    // failed calls in a singleton store; a local list is throw-safe and
+    // ensures we only dispatch when withChainLock() returns successfully.
+    $pendingEvents = [];
 
-        $signed = $buildAndSign($context);
-        $this->validateContext($context, $signed);
+    $signed = $this->locker->withChainLock(
+        $chainId,
+        function () use ($chainId, $buildAndSign, &$pendingEvents) {
+            $tail = $this->tail($chainId);
+            $context = new AppendContext(
+                chainId: $chainId,
+                sequence: $tail === null ? 1 : $tail->envelope->seq + 1,
+                prevHash: $tail?->selfHash(),
+                timestampIso8601: $this->monotonicTimestamp($tail),
+            );
 
-        $bytes = $signed->signedCanonicalBytes();
-        $this->connection->table('attest_envelopes')->insert([
-            'chain_id'     => $chainId,
-            'sequence'     => $context->sequence,
-            'envelope_id'  => $signed->envelope->id,
-            'prev_hash'    => $signed->envelope->prevHash,
-            'self_hash'    => $signed->selfHash(),
-            'key_id'       => $signed->envelope->keyId,
-            'type'         => $signed->envelope->type,
-            'raw_envelope' => $bytes,
-            'created_at'   => $signed->envelope->ts,  // from envelope, NOT DB default
-        ]);
+            $signed = $buildAndSign($context);
+            $this->validateContext($context, $signed);
 
-        // EnvelopeRecorded is dispatched AFTER the locker commits the
-        // transaction. The locker's $work returns to it before commit;
-        // the event therefore queues here and fires after withChainLock
-        // returns. See §11.
-        $this->pendingEvents[] = new EnvelopeRecorded($chainId, $signed);
-        return $signed;
-    });
+            $bytes = $signed->signedCanonicalBytes();
+            // Parse the envelope's ISO-8601 ts into a DateTimeImmutable
+            // (UTC) and let Laravel's PDO binding format it for the
+            // current driver. Passing the raw string risks dialect-
+            // specific round-trip drift, particularly on MySQL where
+            // microsecond strings are silently truncated unless bound
+            // through a DateTime-aware path.
+            $createdAt = new \DateTimeImmutable($signed->envelope->ts);
+
+            $this->connection->table('attest_envelopes')->insert([
+                'chain_id'     => $chainId,
+                'sequence'     => $context->sequence,
+                'envelope_id'  => $signed->envelope->id,
+                'prev_hash'    => $signed->envelope->prevHash,
+                'self_hash'    => $signed->selfHash(),
+                'key_id'       => $signed->envelope->keyId,
+                'type'         => $signed->envelope->type,
+                'raw_envelope' => $bytes,
+                'created_at'   => $createdAt,  // from envelope, NOT DB default
+            ]);
+
+            $pendingEvents[] = new EnvelopeRecorded($chainId, $signed);
+            return $signed;
+        },
+    );
+
+    // withChainLock() returns only after commit. If $work threw, the
+    // locker rolled back and we never reach here, so $pendingEvents is
+    // discarded with no dispatch.
+    foreach ($pendingEvents as $event) {
+        $this->events->dispatch($event);
+    }
+
+    return $signed;
 }
 ```
 
-Two things to note:
+Three things to note:
 
-- `created_at` is populated from the **envelope's `ts` field**, not the DB default. Microsecond precision survives because the column is `TIMESTAMP(6)` / `TIMESTAMPTZ(6)` and Laravel binds the ISO-8601 string through PDO.
-- The event dispatch sits outside the transaction. See §11.
-
-`monotonicTimestamp()` enforces `max(now, tail.ts + 1ms)` exactly as `FileChainStore` does. `validateContext()` raises `ContextMismatch` if the callback returned an envelope whose chain/seq/prev_hash/ts don't match the context.
+- `created_at` is populated from the **envelope's `ts` field**, parsed into `DateTimeImmutable` (UTC) and bound via Laravel's PDO layer. Direct ISO-8601 string binding is not portable across drivers (MySQL silently truncates microseconds without DateTime-aware binding); the explicit object hands off dialect-correct formatting to Laravel.
+- Event dispatch sits **outside** the transaction. The `$pendingEvents` array is local to this call, captured by reference inside the closure. If `$work` throws, the locker rolls back and we never reach the dispatch loop. See §11.
+- `monotonicTimestamp()` enforces `max(now, tail.ts + 1ms)` exactly as `FileChainStore` does. `validateContext()` raises `ContextMismatch` if the callback returned an envelope whose chain/seq/prev_hash/ts don't match the context.
 
 ## 9. EloquentAnchorClaimStore
 
 Implements `AnchorClaimStore` (Chunk 2).
 
-- `claim($anchorId, $details)`: `$count = DB::table('attest_anchor_claims')->insertOrIgnore([...]); return $count > 0;`
+**All time values are computed in PHP, never in SQL.** `NOW(6)` and `INTERVAL` syntax are not portable across SQLite, MySQL 8, and PostgreSQL 16; computing the cutoff once in PHP and binding it as a parameter sidesteps the dialect differences and keeps test fixtures deterministic.
+
+- `claim($anchorId, $details)`:
+  ```php
+  $count = $this->connection->table('attest_anchor_claims')->insertOrIgnore([
+      'anchor_id'  => $anchorId,
+      'chain_id'   => $details->chainId,
+      'from_seq'   => $details->fromSeq,
+      'to_seq'     => $details->toSeq,
+      'driver'     => $details->driver,
+      'claimed_by' => $details->claimedBy,
+      'claimed_at' => new \DateTimeImmutable($details->claimedAtIso8601),
+  ]);
+  return $count > 0;
+  ```
 - `release($anchorId)`: `DELETE FROM attest_anchor_claims WHERE anchor_id = ? AND completed_at IS NULL`.
-- `complete($anchorId, $envelopeId)`: `UPDATE attest_anchor_claims SET completed_at = NOW(6), completed_envelope_id = ? WHERE anchor_id = ?`. Idempotent: if already completed with the same envelope_id, no-op; with a different envelope_id, throw to surface the inconsistency.
-- `reclaimExpired($ttlSeconds)`: `SELECT * FROM attest_anchor_claims WHERE completed_at IS NULL AND claimed_at < (NOW(6) - INTERVAL <ttl>)`. Yields `AnchorClaim` value objects.
+- `complete($anchorId, $envelopeId)`:
+  ```php
+  $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+  $existing = $this->connection->table('attest_anchor_claims')
+      ->where('anchor_id', $anchorId)
+      ->first();
+  if ($existing?->completed_at !== null) {
+      if ($existing->completed_envelope_id === $envelopeId) {
+          return; // idempotent
+      }
+      throw new \RuntimeException(sprintf(
+          'AnchorClaim %s already completed with envelope_id %s; refusing to overwrite with %s',
+          $anchorId, $existing->completed_envelope_id, $envelopeId,
+      ));
+  }
+  $this->connection->table('attest_anchor_claims')
+      ->where('anchor_id', $anchorId)
+      ->update([
+          'completed_at'          => $now,
+          'completed_envelope_id' => $envelopeId,
+      ]);
+  ```
+- `reclaimExpired($ttlSeconds)`:
+  ```php
+  $cutoff = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
+      ->sub(new \DateInterval('PT' . $ttlSeconds . 'S'));
+  $rows = $this->connection->table('attest_anchor_claims')
+      ->whereNull('completed_at')
+      ->where('claimed_at', '<', $cutoff)
+      ->cursor();
+  foreach ($rows as $row) {
+      yield $row->anchor_id => new AnchorClaim(...);
+  }
+  ```
+
+The cutoff is computed once in the caller's timezone-normalized PHP wall clock. Idempotency for `complete()` is checked by SELECT-then-UPDATE inside the same connection; in single-row contention the second writer will read the now-completed state and either no-op or throw — there's no race that produces silent corruption because the `anchor_id` is a primary key, so both writers see consistent state.
 
 ## 10. Models
 
@@ -478,7 +562,7 @@ class AttestAnchorClaim extends Model
 
 - `register()`:
   - Merges `config/attest.php` into the consumer's config.
-  - Binds `ChainLocker` based on the active connection's driver name.
+  - Binds `ChainLocker` based on the **configured attest connection's** driver name.
   - Binds `EloquentChainStore` and `EloquentAnchorClaimStore` as singletons.
   - Binds `Fissible\Attest\Signing\Signer` from the configured env vars (lazily — failure surfaces on first use, not on app boot).
   - Binds `AttestRegistry` singleton.
@@ -494,7 +578,7 @@ Attest::store(): ChainStore
 Attest::claimStore(): AnchorClaimStore
 ```
 
-`AttestRegistry::chain($chainId)` builds and caches an `EvidenceChain::open($store, $chainId, $signer)` per chain.
+**`AttestRegistry::chain($chainId)` returns a fresh `EvidenceChain::open($store, $chainId, $signer)` on every call.** Caching per-chain in a singleton registry is unsafe under Octane (state leaks across requests), unbounded under multi-tenant workloads (one chain ID per tenant grows the cache without bound), and unnecessary because `EvidenceChain` is a lightweight value object wrapping references to the already-singleton `Store` and `Signer`. Construction cost is dominated by an object allocation. If a future use case demonstrates real overhead, a request-scoped cache can be added explicitly — never an implicit singleton-scoped one.
 
 ## 12. Events
 
@@ -511,11 +595,11 @@ final readonly class EnvelopeRecorded
 Fired **only after** the DB transaction commits. Two implementation choices:
 
 1. Register a `DB::afterCommit(...)` callback inside the locker's `$work`.
-2. Have `EloquentChainStore::append()` accumulate events in a private array inside `$work`, then dispatch them after the locker returns (i.e., after commit).
+2. Have `EloquentChainStore::append()` accumulate events in a **local array (captured by reference)** inside `$work`, then dispatch them after the locker returns (i.e., after commit).
 
-**Use option 2.** It's simpler, doesn't depend on Laravel's afterCommit machinery being available for non-Eloquent events, and the test surface is straightforward (assert the event fires after the row is visible in a subsequent query). The store's `$pendingEvents` is per-call (instance state only matters within the single `append()` call).
+**Use option 2.** See the pseudocode in §8.2. The pending list is allocated per call, captured into the closure by reference, and dispatched only after `withChainLock()` returns successfully. If `$work` throws, the locker rolls back and `append()` never reaches the dispatch loop, so the events are discarded with the call frame. Storing the queue on `$this` would be a leak under singleton-scoped store bindings: a failed call would leave dangling events that the next call dispatches.
 
-`DB::afterCommit()` would also work, but it requires the connection to be inside a transaction known to Laravel — which Postgres and MySQL paths are, but the SQLite raw-PDO path is not. Option 2 is uniform across drivers.
+Option 2 is uniform across all three drivers because we control the post-commit boundary directly. `DB::afterCommit()` would also work for the MySQL and Postgres paths (both run their write inside a Laravel-managed transaction), but the SQLite path uses raw PDO begin/commit and is not visible to Laravel's `afterCommit` machinery — option 2 sidesteps that asymmetry.
 
 No events fire on read paths, on rollback, or on validation failure.
 
