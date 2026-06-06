@@ -33,7 +33,7 @@ abstract class TestCase extends Orchestra
         return match ($driver) {
             'sqlite' => [
                 'driver' => 'sqlite',
-                'database' => ':memory:',
+                'database' => getenv('DB_DATABASE') ?: ':memory:',
                 'foreign_key_constraints' => true,
             ],
             'mysql' => [
