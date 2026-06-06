@@ -34,6 +34,11 @@ final class SqliteChainLocker implements ChainLocker
         // transaction within a transaction." When we did NOT start the
         // transaction, we don't manage commit/rollback either — the outer
         // caller owns that.
+        //
+        // PDO::inTransaction() is the primary signal but isn't always
+        // reliable on SQLite (some PHP/PDO combos don't track it across
+        // certain operations). Fall back to catching the nested-txn error
+        // text from BEGIN IMMEDIATE itself.
         $weStartedTransaction = false;
         if (! $pdo->inTransaction()) {
             try {
@@ -44,10 +49,15 @@ final class SqliteChainLocker implements ChainLocker
                 $pdo->exec('BEGIN IMMEDIATE');
                 $weStartedTransaction = true;
             } catch (\PDOException $e) {
-                if (str_contains(strtolower($e->getMessage()), 'database is locked')) {
+                $msg = strtolower($e->getMessage());
+                if (str_contains($msg, 'database is locked')) {
                     throw new ChainLockUnavailable($chainId);
                 }
-                throw $e;
+                if (! str_contains($msg, 'cannot start a transaction within a transaction')) {
+                    throw $e;
+                }
+                // Already in an outer transaction we couldn't detect via
+                // PDO::inTransaction(). Run work; outer caller owns commit/rollback.
             }
         }
 
