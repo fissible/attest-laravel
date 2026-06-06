@@ -43,10 +43,20 @@ final class SqliteChainLocker implements ChainLocker
 
         try {
             $result = $work();
-            $pdo->commit();
+            if ($pdo->inTransaction()) {
+                $pdo->commit();
+            }
             return $result;
         } catch (\Throwable $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                try {
+                    $pdo->rollBack();
+                } catch (\PDOException) {
+                    // Surface the original exception even if rollback itself fails
+                    // (e.g., the transaction was already implicitly closed by the
+                    // operation that threw).
+                }
+            }
             throw $e;
         }
     }
