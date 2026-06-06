@@ -394,7 +394,40 @@ Implements both `ChainStore` (Chunk 1) and `RawChainStore` (Chunk 2).
 - `listChains()`: `SELECT DISTINCT chain_id FROM attest_envelopes`, yields strings.
 - `exists($chainId)`: `SELECT 1 FROM attest_envelopes WHERE chain_id = ? LIMIT 1`.
 
-### 8.2 Write path (`append`)
+### 8.2 Timestamp formatting helper
+
+Laravel's query grammar formats `DateTimeInterface` bindings via `Connection::getQueryGrammar()->getDateFormat()`, which on every shipped driver returns `Y-m-d H:i:s` — fractional seconds are dropped. Binding a `DateTimeImmutable` directly therefore loses microsecond precision on insert, which destroys the envelope's authoritative `ts` field in the row. We sidestep the grammar by formatting to a string in `Y-m-d H:i:s.u` ourselves and binding the string:
+
+```php
+namespace Fissible\AttestLaravel\Support;
+
+final class Timestamp
+{
+    /** Canonical wire format for attest_envelopes.created_at and
+     *  attest_anchor_claims.{claimed_at,completed_at}. UTC, microsecond
+     *  precision, dialect-portable. */
+    public const FORMAT = 'Y-m-d H:i:s.u';
+
+    public static function format(\DateTimeInterface $when): string
+    {
+        $utc = $when instanceof \DateTimeImmutable
+            ? $when->setTimezone(new \DateTimeZone('UTC'))
+            : \DateTimeImmutable::createFromInterface($when)->setTimezone(new \DateTimeZone('UTC'));
+        return $utc->format(self::FORMAT);
+    }
+
+    public static function fromEnvelopeTs(string $iso8601): string
+    {
+        return self::format(new \DateTimeImmutable($iso8601));
+    }
+}
+```
+
+All three drivers accept the formatted string in their `TIMESTAMP(6)` / `TIMESTAMPTZ(6)` columns and round-trip the microseconds correctly. The `Connection`-side cast back to `DateTime` on read is fine — we never read `created_at` for envelope state (envelope state lives in `raw_envelope` per §8.1); the read paths for `attest_anchor_claims` parse `claimed_at` / `completed_at` from the column for diagnostic / reclaim purposes, and the standard cast suffices there.
+
+**Tests must verify byte-level microsecond preservation**: insert an envelope whose `ts` carries microseconds, read back `created_at`, assert format and equality. Add this to `EloquentChainStoreTest` and `EloquentAnchorClaimStoreTest`.
+
+### 8.3 Write path (`append`)
 
 ```php
 public function append(string $chainId, callable $buildAndSign): SignedEnvelope
@@ -420,14 +453,10 @@ public function append(string $chainId, callable $buildAndSign): SignedEnvelope
             $this->validateContext($context, $signed);
 
             $bytes = $signed->signedCanonicalBytes();
-            // Parse the envelope's ISO-8601 ts into a DateTimeImmutable
-            // (UTC) and let Laravel's PDO binding format it for the
-            // current driver. Passing the raw string risks dialect-
-            // specific round-trip drift, particularly on MySQL where
-            // microsecond strings are silently truncated unless bound
-            // through a DateTime-aware path.
-            $createdAt = new \DateTimeImmutable($signed->envelope->ts);
-
+            // Format the envelope's ISO-8601 ts to Y-m-d H:i:s.u via
+            // Timestamp::fromEnvelopeTs (see §8.2). We bind the string
+            // directly rather than a DateTimeImmutable because Laravel's
+            // grammar formatters drop fractional seconds.
             $this->connection->table('attest_envelopes')->insert([
                 'chain_id'     => $chainId,
                 'sequence'     => $context->sequence,
@@ -437,7 +466,7 @@ public function append(string $chainId, callable $buildAndSign): SignedEnvelope
                 'key_id'       => $signed->envelope->keyId,
                 'type'         => $signed->envelope->type,
                 'raw_envelope' => $bytes,
-                'created_at'   => $createdAt,  // from envelope, NOT DB default
+                'created_at'   => Timestamp::fromEnvelopeTs($signed->envelope->ts),
             ]);
 
             $pendingEvents[] = new EnvelopeRecorded($chainId, $signed);
@@ -458,7 +487,7 @@ public function append(string $chainId, callable $buildAndSign): SignedEnvelope
 
 Three things to note:
 
-- `created_at` is populated from the **envelope's `ts` field**, parsed into `DateTimeImmutable` (UTC) and bound via Laravel's PDO layer. Direct ISO-8601 string binding is not portable across drivers (MySQL silently truncates microseconds without DateTime-aware binding); the explicit object hands off dialect-correct formatting to Laravel.
+- `created_at` is populated from the **envelope's `ts` field** via `Timestamp::fromEnvelopeTs()` (see §8.2). The helper formats to `Y-m-d H:i:s.u` in UTC and we bind the string directly. Binding a `DateTimeImmutable` would let Laravel's grammar formatter drop the microseconds; the explicit string sidesteps that.
 - Event dispatch sits **outside** the transaction. The `$pendingEvents` array is local to this call, captured by reference inside the closure. If `$work` throws, the locker rolls back and we never reach the dispatch loop. See §11.
 - `monotonicTimestamp()` enforces `max(now, tail.ts + 1ms)` exactly as `FileChainStore` does. `validateContext()` raises `ContextMismatch` if the callback returned an envelope whose chain/seq/prev_hash/ts don't match the context.
 
@@ -477,37 +506,52 @@ Implements `AnchorClaimStore` (Chunk 2).
       'to_seq'     => $details->toSeq,
       'driver'     => $details->driver,
       'claimed_by' => $details->claimedBy,
-      'claimed_at' => new \DateTimeImmutable($details->claimedAtIso8601),
+      'claimed_at' => Timestamp::fromEnvelopeTs($details->claimedAtIso8601),
   ]);
   return $count > 0;
   ```
 - `release($anchorId)`: `DELETE FROM attest_anchor_claims WHERE anchor_id = ? AND completed_at IS NULL`.
 - `complete($anchorId, $envelopeId)`:
   ```php
-  $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
-  $existing = $this->connection->table('attest_anchor_claims')
+  // Atomic conditional UPDATE: the WHERE completed_at IS NULL clause
+  // turns the write into an idempotent compare-and-set. The previous
+  // SELECT-then-UPDATE approach had a TOCTOU window where two workers
+  // could both read "incomplete", both UPDATE, and silently overwrite
+  // each other's envelope_id. With the conditional WHERE, exactly one
+  // worker's UPDATE matches an incomplete row; the second sees zero
+  // affected rows and decides based on the now-visible completed state.
+  $now = Timestamp::format(new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+  $affected = $this->connection->table('attest_anchor_claims')
       ->where('anchor_id', $anchorId)
-      ->first();
-  if ($existing?->completed_at !== null) {
-      if ($existing->completed_envelope_id === $envelopeId) {
-          return; // idempotent
-      }
-      throw new \RuntimeException(sprintf(
-          'AnchorClaim %s already completed with envelope_id %s; refusing to overwrite with %s',
-          $anchorId, $existing->completed_envelope_id, $envelopeId,
-      ));
-  }
-  $this->connection->table('attest_anchor_claims')
-      ->where('anchor_id', $anchorId)
+      ->whereNull('completed_at')
       ->update([
           'completed_at'          => $now,
           'completed_envelope_id' => $envelopeId,
       ]);
+  if ($affected > 0) {
+      return; // first-write wins
+  }
+  // Re-read to distinguish idempotent retry from conflict.
+  $existing = $this->connection->table('attest_anchor_claims')
+      ->where('anchor_id', $anchorId)
+      ->first();
+  if ($existing === null) {
+      throw new \RuntimeException("AnchorClaim $anchorId not found");
+  }
+  if ($existing->completed_envelope_id === $envelopeId) {
+      return; // idempotent: same envelope_id, no-op
+  }
+  throw new \RuntimeException(sprintf(
+      'AnchorClaim %s already completed with envelope_id %s; refusing to overwrite with %s',
+      $anchorId, $existing->completed_envelope_id, $envelopeId,
+  ));
   ```
 - `reclaimExpired($ttlSeconds)`:
   ```php
-  $cutoff = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
-      ->sub(new \DateInterval('PT' . $ttlSeconds . 'S'));
+  $cutoff = Timestamp::format(
+      (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
+          ->sub(new \DateInterval('PT' . $ttlSeconds . 'S')),
+  );
   $rows = $this->connection->table('attest_anchor_claims')
       ->whereNull('completed_at')
       ->where('claimed_at', '<', $cutoff)
@@ -517,7 +561,7 @@ Implements `AnchorClaimStore` (Chunk 2).
   }
   ```
 
-The cutoff is computed once in the caller's timezone-normalized PHP wall clock. Idempotency for `complete()` is checked by SELECT-then-UPDATE inside the same connection; in single-row contention the second writer will read the now-completed state and either no-op or throw — there's no race that produces silent corruption because the `anchor_id` is a primary key, so both writers see consistent state.
+The cutoff is computed once in PHP and bound as a parameter — same `Timestamp::format()` path as all other write-side values, so the comparison happens against a string in the column's canonical format. The atomic `complete()` covers two-worker contention: each path is single-row, both writers see the same primary key, and the conditional `WHERE completed_at IS NULL` ensures only one wins the write. The losing writer re-reads and either no-ops (same envelope_id, idempotent retry) or throws (different envelope_id, real conflict).
 
 ## 10. Models
 
@@ -621,12 +665,23 @@ abstract class TestCase extends Orchestra
 
     protected function defineEnvironment($app): void
     {
+        // DB_CONNECTION carries the canonical Laravel connection name:
+        // 'sqlite', 'mysql', or 'pgsql'. CI matrix labels like 'mysql8'
+        // and 'pgsql16' describe the *service container image version*
+        // and are not Laravel connection names — see §14 for the matrix
+        // mapping. Anything other than these three values is rejected
+        // up-front to fail fast on misconfigured CI jobs.
         $driver = getenv('DB_CONNECTION') ?: 'sqlite';
+        if (! in_array($driver, ['sqlite', 'mysql', 'pgsql'], true)) {
+            throw new \RuntimeException("Unknown DB_CONNECTION: $driver");
+        }
         $app['config']->set('database.default', $driver);
-        // ... per-driver host/port/db from env vars
+        $app['config']->set("database.connections.$driver", $this->driverConfig($driver));
     }
 }
 ```
+
+Each `$this->driverConfig($driver)` reads per-driver env vars (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`) with sane defaults so a developer running `vendor/bin/phpunit` locally without env vars gets a working SQLite in-memory database.
 
 ### 13.2 Contract suites
 
@@ -666,11 +721,13 @@ Per core spec §17. `.github/workflows/ci.yml`:
 
 - Matrix axes:
   - PHP: 8.2, 8.3, 8.4
-  - DB: `sqlite`, `mysql8`, `pgsql16`
-  - OS: `ubuntu-latest` for all; `macos-latest` additionally for SQLite to exercise the macOS PDO-sqlite path.
-- MySQL 8 and PostgreSQL 16 via GH Actions service containers; SQLite via the PHP extension (in-memory or file in tmpdir).
+  - DB matrix label → Laravel connection name → service image:
+    - `sqlite` → `sqlite` → built-in PHP extension (in-memory or tmpdir file)
+    - `mysql8` → `mysql` → `mysql:8.0` GH service container
+    - `pgsql16` → `pgsql` → `postgres:16` GH service container
+  - OS: `ubuntu-latest` for all; `macos-latest` additionally for `sqlite` to exercise the macOS PDO-sqlite path.
+- The matrix label appears in CI job names for clarity ("test (php8.3, mysql8)"); each job sets `DB_CONNECTION` to the corresponding Laravel connection name (`mysql`, `pgsql`, `sqlite`) before invoking PHPUnit. `defineEnvironment()` reads `DB_CONNECTION` and rejects anything else (see §13.1) — so a typo in the matrix wiring fails the job rather than silently falling back to SQLite.
 - Steps: `composer validate --strict`, `composer install`, `vendor/bin/phpstan analyse --no-progress`, `vendor/bin/phpunit --colors=always`.
-- `DB_CONNECTION` env var selects the driver in `tests/TestCase.php::defineEnvironment`.
 
 The reusable `fissible/.github/.github/workflows/release.yml` wires the tag → GitHub Release step (same as `fissible/attest`).
 
