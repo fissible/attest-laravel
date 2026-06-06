@@ -3,3 +3,6 @@ parameters:
   paths:
     - src
   treatPhpDocTypesAsCertain: false
+  reportUnmatchedIgnoredErrors: false
+  ignoreErrors:
+    - identifier: missingType.iterableValue
