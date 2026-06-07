@@ -13,10 +13,13 @@ use Fissible\AttestLaravel\Import\GenericJsonlImporter;
 use Fissible\AttestLaravel\Import\JsonlImportContext;
 use Fissible\AttestLaravel\Import\JsonlImportException;
 use Fissible\AttestLaravel\Import\JsonlImportOptions;
+use Fissible\AttestLaravel\Stores\EloquentChainStore;
+use Fissible\AttestLaravel\Stores\Locking\SqliteChainLocker;
 use Fissible\AttestLaravel\Tests\TestCase;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 
 final class GenericJsonlImporterTest extends TestCase
 {
@@ -177,24 +180,52 @@ final class GenericJsonlImporterTest extends TestCase
     {
         $firstHash = str_repeat('1', 64);
         $secondHash = str_repeat('2', 64);
-        $importer = $this->fixtureImporter();
+        $dbPath = tempnam(sys_get_temp_dir(), 'attest-import-rollback-');
+        self::assertIsString($dbPath);
+        $connectionName = 'import_rollback_' . str_replace('.', '_', uniqid('', true));
+
+        config()->set("database.connections.$connectionName", [
+            'driver' => 'sqlite',
+            'database' => $dbPath,
+            'foreign_key_constraints' => true,
+        ]);
+        $this->artisan('migrate', ['--database' => $connectionName])->run();
+
+        $connection = DB::connection($connectionName);
+        $store = new EloquentChainStore(
+            $connection,
+            new SqliteChainLocker($connection, 5),
+            Event::getFacadeRoot(),
+        );
+
+        $importer = new FixtureJsonlImporter(
+            store: $store,
+            signer: new SodiumSigner(KeyPair::generate(), 'fixture-key'),
+            connection: $connection,
+            importer: 'fixture.feed.v1',
+        );
         $importer->envelopeIds = [
             '01J00000000000000000000006',
             '01J00000000000000000000006',
         ];
 
-        $importer->importLines([$this->jsonLine(['id' => 11, 'content_hash' => $firstHash])]);
-
         try {
-            $importer->importLines([$this->jsonLine(['id' => 12, 'content_hash' => $secondHash])]);
-            self::fail('Expected duplicate envelope ID to fail append.');
-        } catch (JsonlImportException $e) {
-            self::assertSame(1, $e->lineNumber);
-        }
+            $importer->importLines([$this->jsonLine(['id' => 11, 'content_hash' => $firstHash])]);
 
-        self::assertSame(1, DB::table('attest_envelopes')->count());
-        self::assertTrue(DB::table('attest_import_markers')->where('content_hash', $firstHash)->exists());
-        self::assertFalse(DB::table('attest_import_markers')->where('content_hash', $secondHash)->exists());
+            try {
+                $importer->importLines([$this->jsonLine(['id' => 12, 'content_hash' => $secondHash])]);
+                self::fail('Expected duplicate envelope ID to fail append.');
+            } catch (JsonlImportException $e) {
+                self::assertSame(1, $e->lineNumber);
+            }
+
+            self::assertSame(1, $connection->table('attest_envelopes')->count());
+            self::assertTrue($connection->table('attest_import_markers')->where('content_hash', $firstHash)->exists());
+            self::assertFalse($connection->table('attest_import_markers')->where('content_hash', $secondHash)->exists());
+        } finally {
+            DB::purge($connectionName);
+            @unlink($dbPath);
+        }
     }
 
     public function test_import_file_reads_jsonl_from_path(): void
