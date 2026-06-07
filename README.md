@@ -50,6 +50,74 @@ $envelope = Attest::chain('tenant:5')->record('cms.entry.published', [
 
 Each `record()` opens a per-chain write lock, reads the chain tail, builds an `AppendContext`, signs the envelope with the configured Ed25519 key, validates the context, persists into `attest_envelopes`, and dispatches an `EnvelopeRecorded` event after the transaction commits.
 
+## Import JSONL
+
+Use `GenericJsonlImporter` when an application already has append-only JSONL and wants to replay it into an attest chain without duplicate envelopes:
+
+```php
+use Fissible\Attest\Chain\ChainStore;
+use Fissible\Attest\Canonical\JcsEncoder;
+use Fissible\Attest\Signing\Signer;
+use Fissible\AttestLaravel\Import\EloquentImportMarkerTrait;
+use Fissible\AttestLaravel\Import\GenericJsonlImporter;
+use Fissible\AttestLaravel\Import\JsonlImportContext;
+use Fissible\AttestLaravel\Import\JsonlImportOptions;
+use Illuminate\Database\ConnectionInterface;
+
+final class UpdaterAuditImporter extends GenericJsonlImporter
+{
+    use EloquentImportMarkerTrait;
+
+    public function __construct(
+        ChainStore $store,
+        Signer $signer,
+        private readonly ConnectionInterface $connection,
+    ) {
+        parent::__construct($store, $signer);
+    }
+
+    protected function importer(): string
+    {
+        return 'station.updater.audit.global.v1';
+    }
+
+    protected function importMarkerConnection(): ConnectionInterface
+    {
+        return $this->connection;
+    }
+
+    protected function parseLine(string $line, int $lineNumber): ?array
+    {
+        $decoded = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
+        if (! is_array($decoded)) {
+            throw new \RuntimeException("Line $lineNumber is not a JSON object.");
+        }
+        return $decoded;
+    }
+
+    protected function chainIdFor(array $parsed, JsonlImportContext $context): string
+    {
+        return 'updater:global';
+    }
+
+    protected function contentHashFor(array $parsed, JsonlImportContext $context): string
+    {
+        return hash('sha256', JcsEncoder::encode($parsed));
+    }
+
+    protected function buildPayload(array $parsed, JsonlImportContext $context): array
+    {
+        return $parsed;
+    }
+}
+```
+
+`importer()` is the durable marker namespace stored in `attest_import_markers`. Include the logical importer, upstream source/feed identity, and schema version; do not use only the PHP class name. `contentHashFor()` must return a stable lower-case SHA-256 digest for the logical source record, not a line number or byte offset.
+
+The importer uses `ChainStore::append()` directly and writes the marker inside the append callback. With `EloquentChainStore`, the marker and envelope append share one transaction, so a failed append does not strand a marker. Reruns skip existing markers; malformed records fail fast by default. Pass `new JsonlImportOptions(continueOnError: true)` to collect diagnostics and continue past bad lines.
+
+Station's updater bridge is a consumer-side sidecar over its existing runbook audit JSONL. This package ships only the generic importer primitives.
+
 ## Anchor
 
 Anchor a known range immediately:
