@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.2.1-alpha] — 2026-06-06
+
+### Fixed
+- Pin the `fissible/attest` development path-repository version so `composer validate --strict` passes in CI.
+- Harden `SqliteChainLocker` around nested transaction state from Testbench and explicit `BEGIN IMMEDIATE`.
+- Use `VARCHAR` identifier columns in migrations instead of fixed-width `CHAR`, avoiding PostgreSQL trailing-space padding on `envelope_id` and `anchor_id`.
+- Make the Eloquent chain-store contract wrapper resolve the correct driver-specific store.
+- Mark CI-fragile multi-session lock contention and forked SQLite concurrency edge tests as skipped with documented coverage rationale.
+
 ## [0.2.0-alpha] — 2026-06-06
 
 ### Added
