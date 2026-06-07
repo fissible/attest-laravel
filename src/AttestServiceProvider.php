@@ -147,7 +147,7 @@ final class AttestServiceProvider extends ServiceProvider
             Support\HeaderProviderResolver::class,
             Support\TrustedKeyResolver::class,
             Services\AnchorRangeRunner::class,
-            'Fissible\\AttestLaravel\\Services\\UpgradePendingAnchors',
+            Services\UpgradePendingAnchors::class,
             'Fissible\\AttestLaravel\\Services\\VerifyChain',
             'Fissible\\AttestLaravel\\Services\\BundleOperations',
             'Fissible\\AttestLaravel\\Services\\IntegrityAudit',
