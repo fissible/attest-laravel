@@ -143,7 +143,7 @@ final class AttestServiceProvider extends ServiceProvider
     private function registerChunk5Services(): void
     {
         $services = [
-            'Fissible\\AttestLaravel\\Support\\AnchorDriverResolver',
+            Support\AnchorDriverResolver::class,
             'Fissible\\AttestLaravel\\Support\\HeaderProviderResolver',
             'Fissible\\AttestLaravel\\Support\\TrustedKeyResolver',
             'Fissible\\AttestLaravel\\Services\\AnchorRangeRunner',
