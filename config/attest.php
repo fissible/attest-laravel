@@ -27,4 +27,31 @@ return [
     /** AnchorClaim TTL — reclaimable after this many seconds of being
      *  incomplete. */
     'claim_ttl_seconds' => 3600,
+
+    /** Defaults used by Artisan anchoring commands and queued batches. */
+    'anchoring' => [
+        'default_driver' => env('ATTEST_DEFAULT_DRIVER', 'local-only'),
+        'default_chain' => env('ATTEST_DEFAULT_CHAIN'),
+        'calendars' => array_filter(array_map('trim', explode(',', env('ATTEST_OTS_CALENDARS', '')))),
+        'min_calendars' => (int) env('ATTEST_OTS_MIN_CALENDARS', 1),
+        'queue' => env('ATTEST_ANCHOR_QUEUE'),
+        'connection' => env('ATTEST_ANCHOR_QUEUE_CONNECTION'),
+    ],
+
+    /** Verification policy defaults for commands and jobs.
+     *  trusted_keys entries use <key_id>=<base64-pubkey>. */
+    'verification' => [
+        'min_anchor_outcome' => env('ATTEST_MIN_ANCHOR'),
+        'require_trusted_key' => env('ATTEST_REQUIRE_TRUSTED_KEY', true),
+        'trusted_keys' => [],
+        'trusted_key_files' => [],
+        'allow_provider_disagreement' => false,
+    ],
+
+    /** Optional Bitcoin header providers used by verification commands. */
+    'headers' => [
+        'bitcoin_core_rpc' => env('ATTEST_BITCOIN_CORE_RPC'),
+        'bitcoin_core_cookie' => env('ATTEST_BITCOIN_CORE_COOKIE'),
+        'esplora_url' => env('ATTEST_ESPLORA_URL'),
+    ],
 ];

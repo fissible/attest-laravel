@@ -30,6 +30,7 @@ final class AttestServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/attest.php', 'attest');
+        $this->registerChunk5Services();
 
         $this->app->singleton(ChainLocker::class, function (Container $app): ChainLocker {
             $conn = $this->attestConnection($app);
@@ -94,6 +95,13 @@ final class AttestServiceProvider extends ServiceProvider
             __DIR__ . '/../database/migrations' => $this->app->databasePath('migrations'),
         ], 'attest-migrations');
 
+        if ($this->app->runningInConsole()) {
+            $commands = $this->chunk5Commands();
+            if ($commands !== []) {
+                $this->commands($commands);
+            }
+        }
+
         // Force UTC on the attest connection's DB session so the
         // Y-m-d H:i:s.u strings Timestamp emits are interpreted as UTC
         // on insert and selected as UTC on read. SQLite has no session
@@ -130,5 +138,47 @@ final class AttestServiceProvider extends ServiceProvider
                 break;
             // SQLite stores naive strings; no session timezone applies.
         }
+    }
+
+    private function registerChunk5Services(): void
+    {
+        $services = [
+            'Fissible\\AttestLaravel\\Support\\AnchorDriverResolver',
+            'Fissible\\AttestLaravel\\Support\\HeaderProviderResolver',
+            'Fissible\\AttestLaravel\\Support\\TrustedKeyResolver',
+            'Fissible\\AttestLaravel\\Services\\AnchorRangeRunner',
+            'Fissible\\AttestLaravel\\Services\\UpgradePendingAnchors',
+            'Fissible\\AttestLaravel\\Services\\VerifyChain',
+            'Fissible\\AttestLaravel\\Services\\BundleOperations',
+            'Fissible\\AttestLaravel\\Services\\IntegrityAudit',
+        ];
+
+        foreach ($services as $service) {
+            if (class_exists($service)) {
+                $this->app->singleton($service);
+            }
+        }
+    }
+
+    /** @return list<class-string> */
+    private function chunk5Commands(): array
+    {
+        $commands = [
+            'Fissible\\AttestLaravel\\Console\\Commands\\AnchorCommand',
+            'Fissible\\AttestLaravel\\Console\\Commands\\UpgradeCommand',
+            'Fissible\\AttestLaravel\\Console\\Commands\\VerifyCommand',
+            'Fissible\\AttestLaravel\\Console\\Commands\\BundleExportCommand',
+            'Fissible\\AttestLaravel\\Console\\Commands\\BundleVerifyCommand',
+            'Fissible\\AttestLaravel\\Console\\Commands\\IntegrityAuditCommand',
+        ];
+
+        $existing = [];
+        foreach ($commands as $command) {
+            if (class_exists($command)) {
+                $existing[] = $command;
+            }
+        }
+
+        return $existing;
     }
 }

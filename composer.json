@@ -10,11 +10,15 @@
     "require": {
         "php": "^8.2",
         "fissible/attest": "^0.4.0-alpha",
-        "illuminate/support": "^11.0 || ^12.0",
+        "illuminate/bus": "^11.0 || ^12.0",
+        "illuminate/console": "^11.0 || ^12.0",
         "illuminate/database": "^11.0 || ^12.0",
-        "illuminate/console": "^11.0 || ^12.0"
+        "illuminate/queue": "^11.0 || ^12.0",
+        "illuminate/support": "^11.0 || ^12.0"
     },
     "require-dev": {
+        "guzzlehttp/guzzle": "^7.7",
+        "guzzlehttp/psr7": "^2.6",
         "mockery/mockery": "^1.6",
         "orchestra/testbench": "^9.0 || ^10.0",
         "phpstan/phpstan": "^1.10",
@@ -33,7 +37,7 @@
             "options": {
                 "symlink": false,
                 "versions": {
-                    "fissible/attest": "0.4.1-alpha"
+                    "fissible/attest": "0.4.2-alpha"
                 }
             }
         }
@@ -46,6 +50,10 @@
     },
     "config": {
         "sort-packages": true
+    },
+    "suggest": {
+        "guzzlehttp/guzzle": "PSR-18 HTTP client used by OpenTimestamps calendars and Bitcoin header provider commands.",
+        "guzzlehttp/psr7": "PSR-7 factories used by OpenTimestamps calendars and Bitcoin header provider commands."
     },
     "minimum-stability": "dev",
     "prefer-stable": true
