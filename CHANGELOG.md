@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.0-alpha] — 2026-06-07
+
+### Added
+- Artisan command surfaces for anchoring, OpenTimestamps upgrade, chain verification, bundle export, bundle verification, and Eloquent index integrity audit.
+- `AnchorPendingBatch` queue job for scheduler-friendly anchoring without package-level auto-scheduling.
+- Resolver services for anchor drivers, header providers, and trusted keys, including command/config merging.
+- `IntegrityAudit` service and `attest:integrity:audit` command for detecting drift in Eloquent read-side index columns without treating those indexes as verifier trust input.
+- Bundle export/verify service and commands using the core bundle APIs while keeping claimed bundle keys informational only.
+- Optional Guzzle integration for OpenTimestamps calendar and Bitcoin header-provider commands via `require-dev` and Composer suggestions, not hard runtime requirements.
+
 ## [0.2.1-alpha] — 2026-06-06
 
 ### Fixed
