@@ -68,9 +68,14 @@ final class SqliteChainLocker implements ChainLocker
             }
             return $result;
         } catch (\Throwable $e) {
-            if ($weStartedTransaction && $pdo->inTransaction()) {
+            if ($weStartedTransaction) {
                 try {
-                    $pdo->rollBack();
+                    // Some PHP/PDO SQLite versions report false from
+                    // inTransaction() after a failed statement even though
+                    // the raw BEGIN IMMEDIATE transaction is still open.
+                    // Issue raw ROLLBACK so marker writes inside append
+                    // callbacks cannot survive a later insert failure.
+                    $pdo->exec('ROLLBACK');
                 } catch (\PDOException) {
                     // Surface the original exception even if rollback itself fails
                     // (e.g., the transaction was already implicitly closed by the
