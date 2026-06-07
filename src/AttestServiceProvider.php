@@ -150,7 +150,7 @@ final class AttestServiceProvider extends ServiceProvider
             Services\UpgradePendingAnchors::class,
             Services\VerifyChain::class,
             Services\BundleOperations::class,
-            'Fissible\\AttestLaravel\\Services\\IntegrityAudit',
+            Services\IntegrityAudit::class,
         ];
 
         foreach ($services as $service) {
