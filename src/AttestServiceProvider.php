@@ -144,7 +144,7 @@ final class AttestServiceProvider extends ServiceProvider
     {
         $services = [
             Support\AnchorDriverResolver::class,
-            'Fissible\\AttestLaravel\\Support\\HeaderProviderResolver',
+            Support\HeaderProviderResolver::class,
             'Fissible\\AttestLaravel\\Support\\TrustedKeyResolver',
             'Fissible\\AttestLaravel\\Services\\AnchorRangeRunner',
             'Fissible\\AttestLaravel\\Services\\UpgradePendingAnchors',
