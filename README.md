@@ -4,6 +4,58 @@
 
 **Status:** Alpha. API stabilizes at v1.0.
 
+---
+
+## What is this, in plain terms?
+
+This package is the **Laravel integration** for [`fissible/attest`](https://github.com/fissible/attest),
+a **tamper-evident logbook for the important things your application does** — contract
+approvals, publishes, permission grants, anything you might one day need to *prove* happened and
+*prove* wasn't edited afterward.
+
+The core library handles the cryptography (each event is signed and chained, so any later
+tampering is detectable, and batches can be "notarized" against the Bitcoin blockchain to prove
+*when* they existed). This package wires all of that into Laravel so you barely have to think
+about it:
+
+- **Store** evidence in your database via Eloquent (`attest_envelopes`), with correct per-driver
+  write locking on SQLite, MySQL, and PostgreSQL.
+- **Record** an event with a single facade call.
+- **Anchor, verify, export, and audit** with Artisan commands — runnable by hand, on a queue, or
+  on a schedule.
+- **Import** existing append-only JSONL logs into evidence chains without duplicates.
+
+> New to attest? Read the [core README](https://github.com/fissible/attest#readme) first for the
+> plain-language "what and why," including the worked dispute example. This page assumes you want
+> it inside a Laravel app.
+
+## The 30-second example
+
+Record an event when something important happens:
+
+```php
+use Fissible\AttestLaravel\Facades\Attest;
+
+Attest::chain('tenant:5')->record('contract.approved', [
+    'contract_id' => 'C-2026-014',
+    'approved_by' => 'user:7',
+    'amount'      => 50_000,
+]);
+```
+
+Later, prove that chain is intact and signed by a key you trust:
+
+```bash
+php artisan attest:verify --chain=tenant:5 --trusted-key=prod=<base64-public-key>
+```
+
+A clean chain exits `0`. A tampered or unsigned chain fails — so "the log wasn't edited" stops
+being something you ask people to take on faith.
+
+Everything below is detail you can read when you need it.
+
+---
+
 ## Install
 
 ```bash
@@ -13,7 +65,8 @@ php artisan vendor:publish --tag=attest-migrations
 php artisan migrate
 ```
 
-Migrations also auto-load if you do not want to publish them.
+Requires PHP `^8.2` and Laravel 11 or 12. Migrations also auto-load if you do not want to
+publish them.
 
 ## Configure
 
@@ -34,7 +87,9 @@ ATTEST_ANCHOR_QUEUE=anchors
 ATTEST_MIN_ANCHOR=local_only
 ```
 
-OpenTimestamps anchoring and Bitcoin header verification use optional PSR-18/PSR-7 wiring from core. This package suggests `guzzlehttp/guzzle` and `guzzlehttp/psr7`; install them when you want calendar or header-provider commands to create HTTP clients from config.
+OpenTimestamps anchoring and Bitcoin header verification use optional PSR-18/PSR-7 wiring from
+core. This package suggests `guzzlehttp/guzzle` and `guzzlehttp/psr7`; install them when you want
+calendar or header-provider commands to create HTTP clients from config.
 
 ## Record
 
@@ -48,11 +103,14 @@ $envelope = Attest::chain('tenant:5')->record('cms.entry.published', [
 ]);
 ```
 
-Each `record()` opens a per-chain write lock, reads the chain tail, builds an `AppendContext`, signs the envelope with the configured Ed25519 key, validates the context, persists into `attest_envelopes`, and dispatches an `EnvelopeRecorded` event after the transaction commits.
+Each `record()` opens a per-chain write lock, reads the chain tail, builds an `AppendContext`,
+signs the envelope with the configured Ed25519 key, validates the context, persists into
+`attest_envelopes`, and dispatches an `EnvelopeRecorded` event after the transaction commits.
 
 ## Import JSONL
 
-Use `GenericJsonlImporter` when an application already has append-only JSONL and wants to replay it into an attest chain without duplicate envelopes:
+Use `GenericJsonlImporter` when an application already has append-only JSONL and wants to replay
+it into an attest chain without duplicate envelopes:
 
 ```php
 use Fissible\Attest\Chain\ChainStore;
@@ -112,11 +170,19 @@ final class UpdaterAuditImporter extends GenericJsonlImporter
 }
 ```
 
-`importer()` is the durable marker namespace stored in `attest_import_markers`. Include the logical importer, upstream source/feed identity, and schema version; do not use only the PHP class name. `contentHashFor()` must return a stable lower-case SHA-256 digest for the logical source record, not a line number or byte offset.
+`importer()` is the durable marker namespace stored in `attest_import_markers`. Include the
+logical importer, upstream source/feed identity, and schema version; do not use only the PHP
+class name. `contentHashFor()` must return a stable lower-case SHA-256 digest for the logical
+source record, not a line number or byte offset.
 
-The importer uses `ChainStore::append()` directly and writes the marker inside the append callback. With `EloquentChainStore`, the marker and envelope append share one transaction, so a failed append does not strand a marker. Reruns skip existing markers; malformed records fail fast by default. Pass `new JsonlImportOptions(continueOnError: true)` to collect diagnostics and continue past bad lines.
+The importer uses `ChainStore::append()` directly and writes the marker inside the append
+callback. With `EloquentChainStore`, the marker and envelope append share one transaction, so a
+failed append does not strand a marker. Reruns skip existing markers; malformed records fail
+fast by default. Pass `new JsonlImportOptions(continueOnError: true)` to collect diagnostics and
+continue past bad lines.
 
-Station's updater bridge is a consumer-side sidecar over its existing runbook audit JSONL. This package ships only the generic importer primitives.
+Station's updater bridge is a consumer-side sidecar over its existing runbook audit JSONL. This
+package ships only the generic importer primitives.
 
 ## Anchor
 
@@ -132,7 +198,8 @@ Dispatch the queueable `AnchorPendingBatch` instead of anchoring inline:
 php artisan attest:anchor --chain=tenant:5 --from=1 --queue=anchors
 ```
 
-The package does not auto-register schedules. Add scheduling in your app when you want periodic anchoring:
+The package does not auto-register schedules. Add scheduling in your app when you want periodic
+anchoring:
 
 ```php
 use Illuminate\Support\Facades\Schedule;
@@ -175,7 +242,8 @@ php artisan attest:verify \
     --min-anchor=local_only
 ```
 
-Accepted `--min-anchor` values are `local_only`, `pending`, `upgraded_no_headers`, `remote_header_confirmed`, and `bitcoin_verified`.
+Accepted `--min-anchor` values are `local_only`, `pending`, `upgraded_no_headers`,
+`remote_header_confirmed`, and `bitcoin_verified`.
 
 ## Bundles
 
@@ -198,7 +266,8 @@ php artisan attest:bundle:verify \
     --min-anchor=local_only
 ```
 
-Claimed keys included in bundles are informational. They are never trusted automatically by `attest:bundle:verify`.
+Claimed keys included in bundles are informational. They are never trusted automatically by
+`attest:bundle:verify`.
 
 ## Integrity Audit
 
