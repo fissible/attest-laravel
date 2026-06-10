@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.4.1-alpha] — 2026-06-10
+
+### Changed
+- Require `fissible/attest ^1.0` (was `^0.4.0-alpha`). The adapter now targets the stable attest 1.0 core, verified against attest 1.0.0 (181 tests passing, PHPStan clean). No adapter API changes. Note: attest 1.0.0 changed the canonical binary wrapper to `{"$binary": …}`, but this adapter records no binary payloads of its own — consumers are unaffected unless they pass `Binary` payloads directly.
+
 ## [0.4.0-alpha] — 2026-06-07
 
 ### Added
