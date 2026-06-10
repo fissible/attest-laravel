@@ -57,11 +57,11 @@ jobs:
           --health-timeout=5s --health-retries=10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: attest-laravel
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: fissible/attest
           ref: main
