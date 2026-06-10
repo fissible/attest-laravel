@@ -2,7 +2,7 @@
 
 > Laravel adapter for [`fissible/attest`](https://github.com/fissible/attest): Eloquent storage, Artisan commands, queue-ready anchoring, and events.
 
-**Status:** Alpha. API stabilizes at v1.0.
+**Status:** Alpha — built on the stable [`fissible/attest`](https://github.com/fissible/attest) 1.0 core; the adapter's own API stabilizes at its 1.0.
 
 ---
 
