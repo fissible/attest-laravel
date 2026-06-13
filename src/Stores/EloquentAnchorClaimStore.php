@@ -53,6 +53,10 @@ final class EloquentAnchorClaimStore implements AnchorClaimStore
             return;
         }
 
+        // Query\Builder::first() returns \stdClass|null at runtime; Laravel 11's
+        // stubs type it loosely as object|null, which PHPStan won't let us read
+        // dynamic properties from. Annotate to the real shape.
+        /** @var \stdClass|null $existing */
         $existing = $this->connection->table('attest_anchor_claims')
             ->where('anchor_id', $anchorId)
             ->first();
