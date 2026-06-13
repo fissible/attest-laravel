@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.1] — 2026-06-13
+
+First `1.0.0` beta, cut for consumer soak (Mesabit). The public API is considered frozen for the duration of the soak; the formal stability guarantee lands with `1.0.0`.
+
+### Added
+- **Laravel 13 support** (`illuminate/* ^13.0`, `orchestra/testbench ^11.0`). Verified against Laravel 13.15.0 / testbench 11.1 with no source changes — Laravel 13 is a minimal-breaking-changes release and the adapter only touches stable Eloquent/console/queue/event contracts.
+- CI matrix now pins each supported Laravel major (11/12/13) via its testbench major (`^9`→L11, `^10`→L12, `^11`→L13) so the full `^11 || ^12 || ^13` range is exercised at both ends rather than floating to the newest. Laravel 13 requires PHP `^8.3`, so PHP 8.2 is paired only with L11/L12.
+
+### Changed
+- Require `fissible/attest ^1.1` (was `^1.0`) and consume the shipped `Fissible\Attest\Testing\*` storage contract test traits instead of copy-pasted ports. The adapter's `EloquentChainStore` and `EloquentAnchorClaimStore` are now tested against the single canonical core contract, so drift between core and the adapter is impossible.
+
+### Removed
+- The `tests/Contract/*` trait ports, superseded by the shipped core traits.
+
 ## [0.4.1-alpha] — 2026-06-10
 
 ### Changed
