@@ -8,33 +8,31 @@ on:
 
 jobs:
   test:
-    name: test (php${{ matrix.php }}, ${{ matrix.db }}, ${{ matrix.os }})
+    name: test (L${{ matrix.laravel }}, php${{ matrix.php }}, ${{ matrix.db }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      # Each Laravel major is pinned via its orchestra/testbench major
+      # (testbench ^9→L11, ^10→L12, ^11→L13) so the declared support range
+      # "^11 || ^12 || ^13" is exercised at both ends. Laravel 13 requires
+      # PHP ^8.3, so PHP 8.2 is only paired with L11/L12.
       matrix:
-        php: ['8.2', '8.3', '8.4']
-        db: ['sqlite']
-        os: ['ubuntu-latest', 'macos-latest']
         include:
-          - php: '8.2'
-            db: 'mysql8'
-            os: 'ubuntu-latest'
-          - php: '8.3'
-            db: 'mysql8'
-            os: 'ubuntu-latest'
-          - php: '8.4'
-            db: 'mysql8'
-            os: 'ubuntu-latest'
-          - php: '8.2'
-            db: 'pgsql16'
-            os: 'ubuntu-latest'
-          - php: '8.3'
-            db: 'pgsql16'
-            os: 'ubuntu-latest'
-          - php: '8.4'
-            db: 'pgsql16'
-            os: 'ubuntu-latest'
+          # ---- Laravel 13 (current; PHP 8.3+) ----
+          - { php: '8.3', laravel: '13', testbench: '^11.0', db: 'sqlite',  os: 'ubuntu-latest' }
+          - { php: '8.4', laravel: '13', testbench: '^11.0', db: 'sqlite',  os: 'ubuntu-latest' }
+          - { php: '8.3', laravel: '13', testbench: '^11.0', db: 'sqlite',  os: 'macos-latest' }
+          - { php: '8.4', laravel: '13', testbench: '^11.0', db: 'sqlite',  os: 'macos-latest' }
+          - { php: '8.3', laravel: '13', testbench: '^11.0', db: 'mysql8',  os: 'ubuntu-latest' }
+          - { php: '8.4', laravel: '13', testbench: '^11.0', db: 'mysql8',  os: 'ubuntu-latest' }
+          - { php: '8.3', laravel: '13', testbench: '^11.0', db: 'pgsql16', os: 'ubuntu-latest' }
+          - { php: '8.4', laravel: '13', testbench: '^11.0', db: 'pgsql16', os: 'ubuntu-latest' }
+          # ---- Laravel 12 (PHP 8.2 floor) ----
+          - { php: '8.2', laravel: '12', testbench: '^10.0', db: 'sqlite',  os: 'ubuntu-latest' }
+          - { php: '8.4', laravel: '12', testbench: '^10.0', db: 'mysql8',  os: 'ubuntu-latest' }
+          # ---- Laravel 11 (minimum supported) ----
+          - { php: '8.2', laravel: '11', testbench: '^9.0',  db: 'sqlite',  os: 'ubuntu-latest' }
+          - { php: '8.2', laravel: '11', testbench: '^9.0',  db: 'pgsql16', os: 'ubuntu-latest' }
 
     services:
       mysql:
@@ -78,9 +76,13 @@ jobs:
         working-directory: attest-laravel
         run: composer validate --strict
 
+      - name: Pin Laravel major (testbench ${{ matrix.testbench }})
+        working-directory: attest-laravel
+        run: composer require --dev --no-update --no-interaction "orchestra/testbench:${{ matrix.testbench }}"
+
       - name: Install
         working-directory: attest-laravel
-        run: composer install --prefer-dist --no-progress
+        run: composer update --prefer-dist --no-progress --no-interaction
 
       - name: PHPStan
         working-directory: attest-laravel
