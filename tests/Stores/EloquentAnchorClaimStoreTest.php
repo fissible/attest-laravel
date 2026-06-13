@@ -5,7 +5,7 @@ namespace Fissible\AttestLaravel\Tests\Stores;
 
 use Fissible\Attest\Anchor\AnchorClaim;
 use Fissible\AttestLaravel\Stores\EloquentAnchorClaimStore;
-use Fissible\AttestLaravel\Tests\Contract\AnchorClaimStoreContractTests;
+use Fissible\Attest\Testing\AnchorClaimStoreContractTests;
 use Fissible\AttestLaravel\Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;

@@ -8,7 +8,7 @@ use Fissible\AttestLaravel\Stores\Locking\ChainLocker;
 use Fissible\AttestLaravel\Stores\Locking\MysqlChainLocker;
 use Fissible\AttestLaravel\Stores\Locking\PostgresChainLocker;
 use Fissible\AttestLaravel\Stores\Locking\SqliteChainLocker;
-use Fissible\AttestLaravel\Tests\Contract\ChainStoreContractTests;
+use Fissible\Attest\Testing\ChainStoreContractTests;
 use Fissible\AttestLaravel\Tests\TestCase;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;

@@ -9,7 +9,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "fissible/attest": "^1.0",
+        "fissible/attest": "^1.1",
         "illuminate/bus": "^11.0 || ^12.0",
         "illuminate/console": "^11.0 || ^12.0",
         "illuminate/database": "^11.0 || ^12.0",
@@ -37,7 +37,7 @@
             "options": {
                 "symlink": false,
                 "versions": {
-                    "fissible/attest": "1.0.0"
+                    "fissible/attest": "1.1.0"
                 }
             }
         }
