@@ -21,7 +21,7 @@
         "guzzlehttp/psr7": "^2.6",
         "mockery/mockery": "^1.6",
         "orchestra/testbench": "^9.0 || ^10.0 || ^11.0",
-        "phpstan/phpstan": "^1.10",
+        "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^11.0"
     },
     "autoload": {
@@ -30,18 +30,6 @@
     "autoload-dev": {
         "psr-4": {"Fissible\\AttestLaravel\\Tests\\": "tests/"}
     },
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../attest",
-            "options": {
-                "symlink": false,
-                "versions": {
-                    "fissible/attest": "1.1.0"
-                }
-            }
-        }
-    ],
     "extra": {
         "laravel": {
             "providers": ["Fissible\\AttestLaravel\\AttestServiceProvider"],
@@ -55,6 +43,6 @@
         "guzzlehttp/guzzle": "PSR-18 HTTP client used by OpenTimestamps calendars and Bitcoin header provider commands.",
         "guzzlehttp/psr7": "PSR-7 factories used by OpenTimestamps calendars and Bitcoin header provider commands."
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "stable",
     "prefer-stable": true
 }

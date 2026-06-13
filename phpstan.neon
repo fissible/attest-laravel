@@ -2,6 +2,7 @@ parameters:
   level: 8
   paths:
     - src
+    - tests/Import/EloquentImportMarkerTraitTest.php
   treatPhpDocTypesAsCertain: false
   reportUnmatchedIgnoredErrors: false
   ignoreErrors:
