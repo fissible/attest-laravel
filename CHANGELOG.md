@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] — 2026-06-13
+
+Supersedes 1.0.0-beta.1, whose CI was red on the Laravel 11 lane (two L11-only defects surfaced once the matrix pinned each major explicitly). Functionally identical otherwise. Use this as the soak target.
+
+### Fixed
+- PHPStan failure on Laravel 11: `Query\Builder::first()` is typed `object|null` by L11's stubs (rather than `\stdClass|null`), so the dynamic property reads in `EloquentAnchorClaimStore::completeClaim()` were rejected. Annotated the result to its real runtime shape.
+- Concurrency test error on Laravel 11: `parent::setUp()` migrates a file-backed sqlite database that Laravel 11 (unlike 12+) does not auto-create, throwing before the in-CI skip guard. The test now touches the file when missing.
+
 ## [1.0.0-beta.1] — 2026-06-13
 
 First `1.0.0` beta, cut for consumer soak (Mesabit). The public API is considered frozen for the duration of the soak; the formal stability guarantee lands with `1.0.0`.
