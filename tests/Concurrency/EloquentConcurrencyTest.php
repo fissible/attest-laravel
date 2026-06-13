@@ -26,6 +26,17 @@ final class EloquentConcurrencyTest extends TestCase
 
     protected function setUp(): void
     {
+        // Laravel 12+ auto-creates a missing file-backed sqlite database;
+        // Laravel 11 does not. parent::setUp() runs migrations via the
+        // DatabaseMigrations trait, so the file must exist first or the
+        // migration throws before the skip guards below are reached.
+        $database = getenv('DB_DATABASE') ?: ':memory:';
+        if ((getenv('DB_CONNECTION') ?: 'sqlite') === 'sqlite'
+            && $database !== ':memory:'
+            && ! file_exists($database)
+        ) {
+            touch($database);
+        }
         parent::setUp();
         if (! function_exists('pcntl_fork')) {
             $this->markTestSkipped('pcntl_fork not available');
