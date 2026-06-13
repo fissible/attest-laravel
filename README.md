@@ -68,8 +68,8 @@ php artisan migrate
 > **During the 1.0 beta**, require the prerelease explicitly (Composer will not select it by
 > default): `composer require fissible/attest-laravel:^1.0.0-beta`.
 
-Requires PHP `^8.2` and Laravel 11, 12, or 13. (Laravel 13 requires PHP `^8.3`; PHP 8.2 is
-supported on Laravel 11 and 12.) Migrations also auto-load if you do not want to publish them.
+Requires PHP `^8.2` and Laravel 12 or 13. (Laravel 13 requires PHP `^8.3`; PHP 8.2 is supported
+on Laravel 12.) Migrations also auto-load if you do not want to publish them.
 
 ## Configure
 
