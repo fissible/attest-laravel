@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] — 2026-06-13
+
+### Removed
+- **Dropped Laravel 11 support** — the supported range is now `^12 || ^13`. Laravel 11 has reached security-support EOL, and all 11.x releases are flagged by unpatched security advisories that Composer blocks by default. For a tamper-evidence package, claiming support for an EOL, advisory-flagged framework is inappropriate.
+
+### Changed
+- Consume `fissible/attest` from Packagist: dropped the local `path` repository and the CI sibling-checkout that fed it, and tightened `minimum-stability` to `stable`.
+- Migrated to PHPStan `^2.0` so the Symfony 8 stack — pulled in via `fissible/attest` 1.1.1 and used by downstream Laravel 13 apps — analyses cleanly. (PHPStan 1.x could not reflect Symfony 8's `Command` class and falsely reported inherited `SUCCESS`/`FAILURE` constants as undefined.)
+
 ## [1.0.0-beta.2] — 2026-06-13
 
 Supersedes 1.0.0-beta.1, whose CI was red on the Laravel 11 lane (two L11-only defects surfaced once the matrix pinned each major explicitly). Functionally identical otherwise. Use this as the soak target.
