@@ -8,7 +8,7 @@
 
 **Tech Stack:** PHP 8.2+, Laravel 11/12 (`illuminate/support`, `illuminate/database`, `illuminate/console`, `illuminate/bus`, `illuminate/queue`), `orchestra/testbench`, PHPUnit 11, PHPStan 1.x. SQLite/MySQL/Postgres matrix from Chunk 4 stays unchanged.
 
-**Spec:** Core spec `~/lib/fissible/station/docs/superpowers/specs/2026-05-25-fissible-attest-design.md` section 14; Chunk 4 spec `docs/specs/2026-06-06-chunk-4-eloquent-foundation.md`.
+**Spec:** Core spec the `fissible/attest` core design spec (maintainer-private) section 14; Chunk 4 spec `docs/specs/2026-06-06-chunk-4-eloquent-foundation.md`.
 
 **Tag at completion:** `v0.3.0-alpha`.
 

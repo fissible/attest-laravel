@@ -745,8 +745,8 @@ The reusable `fissible/.github/.github/workflows/release.yml` wires the tag → 
 
 ## 16. References
 
-- `fissible/attest` core spec, `~/lib/fissible/station/docs/superpowers/specs/2026-05-25-fissible-attest-design.md`, especially §7.3, §8.4, §14, §17.
-- `fissible/attest` Chunk 0+1 plan, `~/lib/fissible/station/docs/superpowers/plans/2026-05-25-fissible-attest-chunks-0-1.md`.
+- `fissible/attest` core spec, the `fissible/attest` core design spec (maintainer-private), especially §7.3, §8.4, §14, §17.
+- `fissible/attest` Chunk 0+1 plan, the `fissible/attest` Chunk 0+1 plan (maintainer-private).
 - MySQL named locks (session scope): https://dev.mysql.com/doc/mysql/8.0/en/locking-functions.html
 - PostgreSQL advisory locks (xact scope): https://www.postgresql.org/docs/current/functions-admin.html
 - SQLite `BEGIN IMMEDIATE`: https://www.sqlite.org/lang_transaction.html
