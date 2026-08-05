@@ -22,7 +22,7 @@ final class IntegrityAuditCommandTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->signer = new SodiumSigner(KeyPair::generate(), 'station-prod');
+        $this->signer = new SodiumSigner(KeyPair::generate(), 'app-prod');
     }
 
     public function test_clean_chain_exits_zero_and_emits_json(): void

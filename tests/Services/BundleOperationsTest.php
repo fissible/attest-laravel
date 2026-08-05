@@ -57,7 +57,7 @@ final class BundleOperationsTest extends TestCase
         $this->tmpDir = sys_get_temp_dir() . '/attest-laravel-bundle-' . bin2hex(random_bytes(8));
         mkdir($this->tmpDir, 0o700, recursive: true);
         $this->keyPair = KeyPair::generate();
-        $this->signer = new SodiumSigner($this->keyPair, 'station-prod');
+        $this->signer = new SodiumSigner($this->keyPair, 'app-prod');
     }
 
     protected function tearDown(): void
@@ -79,7 +79,7 @@ final class BundleOperationsTest extends TestCase
             toSeq: 3,
             outPath: $outPath,
             note: 'incident export',
-            issuerHint: 'station-prod',
+            issuerHint: 'app-prod',
         );
 
         self::assertFileExists($outPath);
@@ -91,7 +91,7 @@ final class BundleOperationsTest extends TestCase
 
         $reader = BundleReader::open($outPath);
         self::assertSame('incident export', $reader->manifest()->note);
-        self::assertSame('station-prod', $reader->manifest()->issuerHint);
+        self::assertSame('app-prod', $reader->manifest()->issuerHint);
         self::assertCount(1, $reader->manifest()->chains);
         self::assertCount(1, $reader->manifest()->anchors);
         $reader->close();
@@ -151,7 +151,7 @@ final class BundleOperationsTest extends TestCase
         $this->buildChain($store, 'claimed', 2);
         $this->anchorLocalOnly($store, 'claimed', 1, 2);
         $bundlePath = $this->bundlePath('claimed.attest');
-        $keyPath = $this->claimedKeyPath('station-prod.pub');
+        $keyPath = $this->claimedKeyPath('app-prod.pub');
 
         $this->service()->export('claimed', 1, 2, $bundlePath, claimedKeyFiles: [$keyPath]);
 
@@ -316,7 +316,7 @@ final class BundleOperationsTest extends TestCase
 
     private function trustedKeyEntry(): string
     {
-        return 'station-prod=' . Base64::encode($this->keyPair->publicKey);
+        return 'app-prod=' . Base64::encode($this->keyPair->publicKey);
     }
 
     private function claimedKeyPath(string $name): string

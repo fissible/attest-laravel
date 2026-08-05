@@ -244,9 +244,9 @@ final class GenericJsonlImporterTest extends TestCase
         self::assertSame(1, DB::table('attest_envelopes')->count());
     }
 
-    public function test_station_shaped_audit_rows_import_into_updater_global_chain(): void
+    public function test_upstream_shaped_audit_rows_import_into_updater_global_chain(): void
     {
-        $importer = $this->stationImporter();
+        $importer = $this->updaterImporter();
 
         $result = $importer->importLines([
             $this->jsonLine(['ts' => '2026-06-07T10:00:00+00:00', 'event' => 'run.started', 'run_id' => 'RUN-1']),
@@ -257,14 +257,14 @@ final class GenericJsonlImporterTest extends TestCase
         self::assertSame(2, DB::table('attest_envelopes')->where('chain_id', 'updater:global')->count());
 
         $signed = EnvelopeCodec::decodeSigned((string) DB::table('attest_envelopes')->orderBy('sequence')->value('raw_envelope'));
-        self::assertSame('station.updater.audit.v1', $signed->envelope->type);
+        self::assertSame('ops.updater.audit.v1', $signed->envelope->type);
         self::assertSame('RUN-1', $signed->envelope->correlation);
-        self::assertSame('station.updater.audit.global.v1', $signed->envelope->payload['source']['importer']);
+        self::assertSame('ops.updater.audit.global.v1', $signed->envelope->payload['source']['importer']);
     }
 
-    public function test_station_shaped_audit_replay_and_reorder_are_no_ops(): void
+    public function test_upstream_shaped_audit_replay_and_reorder_are_no_ops(): void
     {
-        $importer = $this->stationImporter();
+        $importer = $this->updaterImporter();
         $first = $this->jsonLine(['ts' => '2026-06-07T10:00:00+00:00', 'event' => 'run.started', 'run_id' => 'RUN-2']);
         $second = $this->jsonLine(['ts' => '2026-06-07T10:01:00+00:00', 'event' => 'step.completed', 'run_id' => 'RUN-2']);
 
@@ -276,13 +276,13 @@ final class GenericJsonlImporterTest extends TestCase
         self::assertSame(2, DB::table('attest_envelopes')->count());
     }
 
-    public function test_station_shaped_malformed_row_fails_without_marker(): void
+    public function test_upstream_shaped_malformed_row_fails_without_marker(): void
     {
-        $importer = $this->stationImporter();
+        $importer = $this->updaterImporter();
 
         try {
             $importer->importLines([$this->jsonLine(['ts' => '2026-06-07T10:00:00+00:00'])]);
-            self::fail('Expected malformed Station row to fail.');
+            self::fail('Expected malformed upstream row to fail.');
         } catch (JsonlImportException $e) {
             self::assertSame(1, $e->lineNumber);
         }
@@ -311,11 +311,11 @@ final class GenericJsonlImporterTest extends TestCase
         );
     }
 
-    private function stationImporter(): StationAuditJsonlImporter
+    private function updaterImporter(): UpdaterAuditJsonlImporter
     {
-        return new StationAuditJsonlImporter(
+        return new UpdaterAuditJsonlImporter(
             store: $this->app->make(ChainStore::class),
-            signer: new SodiumSigner(KeyPair::generate(), 'station-key'),
+            signer: new SodiumSigner(KeyPair::generate(), 'app-key'),
             connection: DB::connection(),
         );
     }
@@ -412,7 +412,7 @@ final class FixtureJsonlImporter extends GenericJsonlImporter
     }
 }
 
-final class StationAuditJsonlImporter extends GenericJsonlImporter
+final class UpdaterAuditJsonlImporter extends GenericJsonlImporter
 {
     use EloquentImportMarkerTrait {
         hasImported as private markerHasImported;
@@ -429,7 +429,7 @@ final class StationAuditJsonlImporter extends GenericJsonlImporter
 
     protected function importer(): string
     {
-        return 'station.updater.audit.global.v1';
+        return 'ops.updater.audit.global.v1';
     }
 
     protected function importMarkerConnection(): ConnectionInterface
@@ -441,10 +441,10 @@ final class StationAuditJsonlImporter extends GenericJsonlImporter
     {
         $decoded = json_decode($line, true);
         if (! is_array($decoded)) {
-            throw new JsonlImportException('Station audit row is not a JSON object', $lineNumber);
+            throw new JsonlImportException('Updater audit row is not a JSON object', $lineNumber);
         }
         if (! is_string($decoded['ts'] ?? null) || ! is_string($decoded['event'] ?? null)) {
-            throw new JsonlImportException('Station audit row requires ts and event strings', $lineNumber);
+            throw new JsonlImportException('Updater audit row requires ts and event strings', $lineNumber);
         }
         return $decoded;
     }
@@ -478,7 +478,7 @@ final class StationAuditJsonlImporter extends GenericJsonlImporter
 
     protected function typeFor(array $parsed, JsonlImportContext $context): string
     {
-        return 'station.updater.audit.v1';
+        return 'ops.updater.audit.v1';
     }
 
     protected function correlationFor(array $parsed, JsonlImportContext $context): ?string

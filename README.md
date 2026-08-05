@@ -78,7 +78,7 @@ Set the attest database connection and signing key environment variables:
 ```env
 ATTEST_CONNECTION=mysql
 ATTEST_SIGNING_KEY_SEED=<base64-32-byte-ed25519-seed>
-ATTEST_SIGNING_KEY_ID=station-prod-2026-01
+ATTEST_SIGNING_KEY_ID=app-prod-2026-01
 ```
 
 Useful operational defaults:
@@ -93,6 +93,36 @@ ATTEST_MIN_ANCHOR=local_only
 OpenTimestamps anchoring and Bitcoin header verification use optional PSR-18/PSR-7 wiring from
 core. This package suggests `guzzlehttp/guzzle` and `guzzlehttp/psr7`; install them when you want
 calendar or header-provider commands to create HTTP clients from config.
+
+## Chains, and why the examples say `tenant:5`
+
+A **chain** is one append-only, hash-linked sequence. `Attest::chain('...')` names it, and the
+name is your convention — attest never parses it. Everything that matters is scoped to a chain:
+sequence numbers, the hash link, the write lock, and verification. Break one chain and the others
+are untouched; verify one chain and you have said nothing about the rest.
+
+That scoping is why a multi-tenant application — one deployment serving several customers,
+organizations, or workspaces that must not see each other's data — usually opens **one chain per
+tenant** rather than one chain for everything:
+
+- **Handoff stays clean.** Evidence gets exported and handed to an auditor, a customer, or a
+  court. With a chain per tenant you can hand over one tenant's complete history without
+  redacting anyone else's out of it — and redaction would break the hash link anyway.
+- **A range is provable.** Anchoring and bundles work over a sequence range. Per-tenant ranges
+  mean "here is everything we recorded for you, entries 1–4,000," which a shared chain cannot say
+  without disclosing the gaps.
+- **Contention and blast radius are bounded.** Appends take a per-chain write lock, and a chain
+  that breaks or stalls affects only its own tenant.
+
+`tenant:5` is just that convention written out: a chain holding tenant 5's evidence. Use whatever
+reads clearly for your domain — `org:acme`, `workspace:42`, `updater:global` for something that
+is genuinely global. Single-tenant applications can happily use one chain per *concern*
+(`billing`, `contracts`) instead; nothing here requires tenancy.
+
+Separately, `record()` takes an optional `tenant` value. That is a field on the signed envelope
+and an indexed column, not a chain selector — it answers "which tenant did this concern?" for
+queries that cross chains, and it is what lets a shared chain stay queryable per tenant. The two
+are independent: use the chain id for isolation, the field for attribution.
 
 ## Record
 
@@ -178,7 +208,7 @@ final class UpdaterAuditImporter extends GenericJsonlImporter
 
     protected function importer(): string
     {
-        return 'station.updater.audit.global.v1';
+        return 'ops.updater.audit.global.v1';
     }
 
     protected function importMarkerConnection(): ConnectionInterface
@@ -223,8 +253,9 @@ failed append does not strand a marker. Reruns skip existing markers; malformed 
 fast by default. Pass `new JsonlImportOptions(continueOnError: true)` to collect diagnostics and
 continue past bad lines.
 
-Station's updater bridge is a consumer-side sidecar over its existing runbook audit JSONL. This
-package ships only the generic importer primitives.
+Bridges for a specific upstream log belong in the application that owns that log — a sidecar over
+its existing JSONL, not something this package can know the shape of. Only the generic importer
+primitives ship here.
 
 ## Anchor
 

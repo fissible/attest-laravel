@@ -54,7 +54,7 @@ final class VerifyCommandTest extends TestCase
         parent::setUp();
 
         $this->keyPair = KeyPair::generate();
-        $this->signer = new SodiumSigner($this->keyPair, 'station-prod');
+        $this->signer = new SodiumSigner($this->keyPair, 'app-prod');
     }
 
     public function test_verified_chain_exits_zero_and_emits_json(): void
@@ -206,7 +206,7 @@ final class VerifyCommandTest extends TestCase
 
     private function trustedKeyEntry(): string
     {
-        return 'station-prod=' . Base64::encode($this->keyPair->publicKey);
+        return 'app-prod=' . Base64::encode($this->keyPair->publicKey);
     }
 
     /**

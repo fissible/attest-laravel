@@ -23,7 +23,7 @@ final class IntegrityAuditTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->signer = new SodiumSigner(KeyPair::generate(), 'station-prod');
+        $this->signer = new SodiumSigner(KeyPair::generate(), 'app-prod');
     }
 
     public function test_clean_indexes_report_no_drift(): void
