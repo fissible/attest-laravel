@@ -50,6 +50,9 @@ final class EloquentChainStore implements ChainStore, RawChainStore
                     'self_hash' => $signed->selfHash(),
                     'key_id' => $signed->envelope->keyId,
                     'type' => $signed->envelope->type,
+                    'correlation' => $signed->envelope->correlation,
+                    'subject' => $signed->envelope->subject,
+                    'tenant' => $signed->envelope->tenant,
                     'raw_envelope' => $signed->signedCanonicalBytes(),
                     'created_at' => Timestamp::fromEnvelopeTs($signed->envelope->ts),
                 ]);

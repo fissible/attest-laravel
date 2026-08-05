@@ -17,7 +17,8 @@ final class MigrationsTest extends TestCase
         self::assertTrue(Schema::hasTable('attest_envelopes'));
         self::assertTrue(Schema::hasColumns('attest_envelopes', [
             'id', 'chain_id', 'sequence', 'envelope_id', 'prev_hash',
-            'self_hash', 'key_id', 'type', 'raw_envelope', 'created_at',
+            'self_hash', 'key_id', 'type', 'correlation', 'subject',
+            'tenant', 'raw_envelope', 'created_at',
         ]));
     }
 

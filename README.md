@@ -110,6 +110,45 @@ Each `record()` opens a per-chain write lock, reads the chain tail, builds an `A
 signs the envelope with the configured Ed25519 key, validates the context, persists into
 `attest_envelopes`, and dispatches an `EnvelopeRecorded` event after the transaction commits.
 
+## Query by correlation, subject, or tenant
+
+`record()` accepts optional `subject`, `correlation`, and `tenant` values. They are part of the
+signed envelope, and they are also projected into indexed columns so you can find envelopes
+without decoding every row in a chain:
+
+```php
+use Fissible\AttestLaravel\Models\AttestEnvelope;
+
+Attest::chain('tenant:5')->record(
+    type: 'agent.decision',
+    payload: ['disposition' => 'permit'],
+    subject: 'order:42',
+    correlation: $invocationId,
+    tenant: 'acme',
+);
+
+$envelopes = AttestEnvelope::query()->forCorrelation($invocationId)->get();
+
+foreach ($envelopes as $envelope) {
+    $signed = $envelope->signed();   // decode the artifact itself
+}
+```
+
+`forCorrelation()` and `forSubject()` return oldest-first, ordered by `created_at` with
+`envelope_id` breaking ties — `sequence` only orders within a single chain. Neither is
+chain-scoped: a correlation id is assigned by the writing application, so an application that
+shards one chain per tenant still gets a single answer across chains.
+
+Correlation ids are unique only by your own convention. If you cannot rely on that convention
+across tenants, scope the query: `AttestEnvelope::query()->forTenant('acme')->forCorrelation($id)`.
+
+**These columns are a projection, never verifier trust input.** `raw_envelope` holds the only
+signed bytes, and that is what `attest:verify` reads. Editing a projection column cannot forge
+evidence or make a broken chain verify — but blanking one *can* hide a row from these queries
+while the chain still verifies clean. `attest:integrity:audit` compares every projection column
+back against the raw envelope and reports drift, so run it on a schedule if you rely on these
+queries for audit answers. When completeness matters more than latency, read the chain.
+
 ## Import JSONL
 
 Use `GenericJsonlImporter` when an application already has append-only JSONL and wants to replay
