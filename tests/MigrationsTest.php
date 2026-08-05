@@ -44,7 +44,7 @@ final class MigrationsTest extends TestCase
         $hash = str_repeat('a', 64);
 
         DB::table('attest_import_markers')->insert([
-            'importer' => 'station.updater.audit.global.v1',
+            'importer' => 'ops.updater.audit.global.v1',
             'content_hash' => $hash,
             'envelope_id' => '01J00000000000000000000000',
             'imported_at' => '2026-06-07 00:00:00.000000',
@@ -53,7 +53,7 @@ final class MigrationsTest extends TestCase
         $this->expectException(QueryException::class);
 
         DB::table('attest_import_markers')->insert([
-            'importer' => 'station.updater.audit.global.v1',
+            'importer' => 'ops.updater.audit.global.v1',
             'content_hash' => $hash,
             'envelope_id' => '01J00000000000000000000001',
             'imported_at' => '2026-06-07 00:00:01.000000',
@@ -65,7 +65,7 @@ final class MigrationsTest extends TestCase
         $hash = str_repeat('b', 64);
 
         DB::table('attest_import_markers')->insert([
-            'importer' => 'station.updater.audit.global.v1',
+            'importer' => 'ops.updater.audit.global.v1',
             'content_hash' => $hash,
             'envelope_id' => '01J00000000000000000000002',
             'imported_at' => '2026-06-07 00:00:00.000000',

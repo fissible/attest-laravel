@@ -52,7 +52,7 @@ First `1.0.0` beta, cut for consumer soak (Mesabit). The public API is considere
 - `GenericJsonlImporter` abstract base for replaying external JSONL into attest chains with lazy file reading, source provenance payload wrapping, fail-fast or continue-on-error diagnostics, and duplicate-safe marker handling.
 - `EloquentImportMarkerTrait` plus `attest_import_markers` migration for idempotent imports keyed by importer/source namespace and content hash.
 - Import result, failure, context, options, and exception value types.
-- Station-shaped updater audit fixture coverage proving the adapter supports Station's sidecar bridge without depending on Station code.
+- Updater-audit fixture coverage proving the adapter supports a consumer-side sidecar bridge over an existing JSONL log without depending on that consumer's code.
 
 ## [0.3.0-alpha] — 2026-06-07
 

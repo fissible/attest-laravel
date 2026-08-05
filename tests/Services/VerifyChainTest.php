@@ -53,7 +53,7 @@ final class VerifyChainTest extends TestCase
     {
         parent::setUp();
         $this->keyPair = KeyPair::generate();
-        $this->signer = new SodiumSigner($this->keyPair, 'station-prod');
+        $this->signer = new SodiumSigner($this->keyPair, 'app-prod');
     }
 
     public function test_trusted_local_chain_verifies(): void
@@ -191,7 +191,7 @@ final class VerifyChainTest extends TestCase
 
     private function trustedKeyEntry(): string
     {
-        return 'station-prod=' . Base64::encode($this->keyPair->publicKey);
+        return 'app-prod=' . Base64::encode($this->keyPair->publicKey);
     }
 
     /**

@@ -15,7 +15,7 @@ final class EloquentImportMarkerTraitTest extends TestCase
 
     public function test_has_imported_is_false_before_marker_and_true_after_marker(): void
     {
-        $marker = new MarkerFixture(DB::connection(), 'station.updater.audit.global.v1');
+        $marker = new MarkerFixture(DB::connection(), 'ops.updater.audit.global.v1');
         $hash = str_repeat('a', 64);
 
         self::assertFalse($marker->has($hash));
@@ -25,7 +25,7 @@ final class EloquentImportMarkerTraitTest extends TestCase
 
     public function test_mark_imported_returns_false_for_duplicate_marker(): void
     {
-        $marker = new MarkerFixture(DB::connection(), 'station.updater.audit.global.v1');
+        $marker = new MarkerFixture(DB::connection(), 'ops.updater.audit.global.v1');
         $hash = str_repeat('b', 64);
 
         self::assertTrue($marker->mark($hash, '01J00000000000000000000001'));
@@ -36,8 +36,8 @@ final class EloquentImportMarkerTraitTest extends TestCase
     public function test_same_content_hash_can_be_marked_under_two_importers(): void
     {
         $hash = str_repeat('c', 64);
-        $first = new MarkerFixture(DB::connection(), 'station.updater.audit.global.v1');
-        $second = new MarkerFixture(DB::connection(), 'station.cms.publish.global.v1');
+        $first = new MarkerFixture(DB::connection(), 'ops.updater.audit.global.v1');
+        $second = new MarkerFixture(DB::connection(), 'ops.cms.publish.global.v1');
 
         self::assertTrue($first->mark($hash, '01J00000000000000000000003'));
         self::assertTrue($second->mark($hash, '01J00000000000000000000004'));
@@ -65,7 +65,7 @@ final class EloquentImportMarkerTraitTest extends TestCase
 
     public function test_invalid_content_hash_throws(): void
     {
-        $marker = new MarkerFixture(DB::connection(), 'station.updater.audit.global.v1');
+        $marker = new MarkerFixture(DB::connection(), 'ops.updater.audit.global.v1');
 
         $this->expectException(\InvalidArgumentException::class);
 
@@ -74,7 +74,7 @@ final class EloquentImportMarkerTraitTest extends TestCase
 
     public function test_imported_at_is_stored(): void
     {
-        $marker = new MarkerFixture(DB::connection(), 'station.updater.audit.global.v1');
+        $marker = new MarkerFixture(DB::connection(), 'ops.updater.audit.global.v1');
         $hash = str_repeat('f', 64);
 
         $marker->mark($hash, '01J00000000000000000000005');

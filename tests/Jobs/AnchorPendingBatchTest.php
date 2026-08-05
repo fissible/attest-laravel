@@ -38,7 +38,7 @@ final class AnchorPendingBatchTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->signer = new SodiumSigner(KeyPair::generate(), 'station-prod');
+        $this->signer = new SodiumSigner(KeyPair::generate(), 'app-prod');
     }
 
     public function test_job_anchors_current_tail_when_to_seq_is_omitted(): void
