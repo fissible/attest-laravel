@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add the generic Laravel JSONL import surface promised by the core spec: `GenericJsonlImporter` plus `EloquentImportMarkerTrait`, backed by an `attest_import_markers` table. The importer must let consumers replay append-only JSONL into evidence chains without duplicate envelopes and without this package depending on Station.
+**Goal:** Add the generic Laravel JSONL import surface promised by the core spec: `GenericJsonlImporter` plus `EloquentImportMarkerTrait`, backed by an `attest_import_markers` table. The importer must let consumers replay append-only JSONL into evidence chains without duplicate envelopes and without this package depending on any one consumer application.
 
 **Architecture:** `GenericJsonlImporter` is an abstract base that owns the JSONL loop, idempotency checks, envelope construction, signing, and result accounting. Consumer subclasses provide source-specific parsing, chain/type mapping, payload mapping, and stable record identity. The base uses `ChainStore::append()` directly instead of `EvidenceChain::record()` so marker insertion can happen inside the append callback and therefore inside `EloquentChainStore`'s transaction. `EloquentImportMarkerTrait` supplies the marker implementation with `insertOrIgnore()` against the configured marker table.
 
-**Reference consumer:** Station's updater bridge. The existing Station `App\Updater\Runbook\AuditLogger` writes framework-free JSONL rows shaped like `{"ts": "...", "event": "...", ...context}` to `storage/app/update-state/audit.jsonl`. The bridge remains a Station-side sidecar: it replays that log into chain `updater:global` only when Composer, Laravel, and signer access are healthy. This adapter chunk ships only the reusable importer primitives.
+**Reference consumer:** an application-side updater bridge. The motivating shape is a framework-free audit logger that already writes JSONL rows like `{"ts": "...", "event": "...", ...context}` to something such as `storage/app/update-state/audit.jsonl`. The bridge stays a consumer-side sidecar: it replays that log into chain `updater:global` only when Composer, Laravel, and signer access are healthy. This adapter chunk ships only the reusable importer primitives.
 
 **Tech Stack:** PHP 8.2+, Laravel 11/12 (`illuminate/database`, `illuminate/support`), `orchestra/testbench`, PHPUnit 11, PHPStan 1.x. Depends on `fissible/attest` core `^0.4.2-alpha`.
 
-**Spec:** `~/lib/fissible/station/docs/superpowers/specs/2026-05-25-fissible-attest-design.md` sections 14, 15, and 17; Chunk 4 Eloquent foundation spec; Chunk 5 command/job plan.
+**Spec:** the `fissible/attest` core design spec (maintainer-private) sections 14, 15, and 17; Chunk 4 Eloquent foundation spec; Chunk 5 command/job plan.
 
 **Tag at completion:** `v0.4.0-alpha`.
 
@@ -18,7 +18,7 @@
 
 ## Design decisions locked for Chunk 6
 
-- **Source identity:** The durable marker namespace is the `importer` column. It must include the logical importer, upstream source/feed identity, and schema version, for example `station.updater.audit.global.v1`. Do not default this to only the PHP class name. The base validates it as non-empty and <= 191 chars.
+- **Source identity:** The durable marker namespace is the `importer` column. It must include the logical importer, upstream source/feed identity, and schema version, for example `ops.updater.audit.global.v1`. Do not default this to only the PHP class name. The base validates it as non-empty and <= 191 chars.
 - **Record identity:** `contentHashFor()` returns a stable lower-case 64-character SHA-256 hex digest for the logical source record. It must not be a line number or byte offset. Reordered files and resumed imports must still identify the same record.
 - **Marker semantics:** A marker is the checkpoint. Chunk 6 does not persist a line-offset checkpoint. A record is complete only after `(importer, content_hash) -> envelope_id` has been inserted in the same transaction as the envelope append.
 - **Idempotency:** Rerunning the same import skips existing markers. Duplicate records inside the same file also skip after the first successful append.
@@ -39,7 +39,7 @@
 ```
 
 - **Transactions:** The atomicity guarantee relies on `EloquentChainStore` invoking the append callback inside its locker transaction. This is the supported store for `EloquentImportMarkerTrait`. Do not claim the same guarantee for arbitrary external `ChainStore` implementations.
-- **Extensibility:** The package ships no Station classes. Station will implement its updater bridge by subclassing `GenericJsonlImporter` and using the trait.
+- **Extensibility:** The package ships no consumer-specific classes. A consumer implements its own updater bridge by subclassing `GenericJsonlImporter` and using the trait.
 
 ---
 
@@ -91,7 +91,7 @@ CHANGELOG.md                                               (Task 6.5)
 VERSION                                                    (Task 6.5)
 ```
 
-Do not modify Station in this chunk.
+Consumer-side bridge classes are out of scope for this chunk.
 
 ---
 
@@ -285,7 +285,7 @@ git commit -m "feat: add Eloquent import marker trait"
 
 ## Task 6.3: Generic JSONL importer core loop
 
-**Why:** Provide the reusable replay engine that Station and other Laravel apps can subclass.
+**Why:** Provide the reusable replay engine that Laravel apps can subclass.
 
 **Files:**
 - Create: `src/Import/GenericJsonlImporter.php`
@@ -420,21 +420,21 @@ git commit -m "feat: add generic JSONL importer"
 
 ---
 
-## Task 6.4: Station updater bridge fixture coverage
+## Task 6.4: Updater bridge fixture coverage
 
-**Why:** The plan's reference consumer is Station's updater audit log. The adapter should prove it supports that shape without importing Station code.
+**Why:** The plan's reference consumer is an application's updater audit log. The adapter should prove it supports that shape without importing any consumer's code.
 
 **Files:**
 - Extend: `tests/Import/GenericJsonlImporterTest.php`
 
-- [ ] **Step 1: Add a Station-shaped fixture importer**
+- [ ] **Step 1: Add an upstream-shaped fixture importer**
 
 Inside tests only, create a fixture subclass that:
 
-- Uses importer namespace `station.updater.audit.global.v1`.
+- Uses importer namespace `ops.updater.audit.global.v1`.
 - Parses JSON lines with `ts` and `event`.
 - Targets chain `updater:global`.
-- Uses type `station.updater.audit.v1`.
+- Uses type `ops.updater.audit.v1`.
 - Uses content hash `sha256(ts . "\n" . event . "\n" . canonical-json(context-without-ts-event))`.
 - Maps payload to:
 
@@ -452,10 +452,10 @@ Inside tests only, create a fixture subclass that:
 
 Cover:
 
-- Typical Station audit rows import into `updater:global`.
+- Typical updater audit rows import into `updater:global`.
 - Replaying the same audit file is a no-op.
 - Reordered rows do not duplicate because content hash is record-based.
-- A malformed Station row fails without marking it.
+- A malformed row fails without marking it.
 
 - [ ] **Step 3: Verify and commit**
 
@@ -463,7 +463,7 @@ Cover:
 vendor/bin/phpunit --filter GenericJsonlImporterTest
 vendor/bin/phpstan analyse --no-progress --memory-limit=512M
 git add tests/Import/GenericJsonlImporterTest.php
-git commit -m "test: cover Station-shaped JSONL imports"
+git commit -m "test: cover upstream-shaped JSONL imports"
 ```
 
 ---
@@ -488,7 +488,7 @@ Add a JSONL import section covering:
 - Content hash rule.
 - Rerun/idempotency semantics.
 - Fail-fast vs `continueOnError`.
-- Station updater bridge as an example, explicitly noting that Station owns the bridge class.
+- An updater bridge as an example, explicitly noting that the consumer application owns the bridge class.
 
 - [ ] **Step 2: Changelog and version**
 
@@ -520,7 +520,7 @@ git commit -m "docs: document JSONL importer"
 - Reruns and duplicate records do not emit duplicate envelopes.
 - Failed records do not get markers.
 - Marker insertion and envelope append are transactionally coupled for `EloquentChainStore`.
-- Station-shaped updater audit rows are covered by adapter tests without adding Station dependencies.
+- Upstream-shaped updater audit rows are covered by adapter tests without adding consumer dependencies.
 - README documents source identity and record identity clearly enough for consumers to avoid marker collisions.
 - Full local release gate passes.
 
@@ -530,7 +530,7 @@ git commit -m "docs: document JSONL importer"
 2. `feat: add JSONL import result types`
 3. `feat: add Eloquent import marker trait`
 4. `feat: add generic JSONL importer`
-5. `test: cover Station-shaped JSONL imports`
+5. `test: cover upstream-shaped JSONL imports`
 6. `docs: document JSONL importer`
 
 Do not tag until the full release gate passes and `main` is aligned with `origin/main`.

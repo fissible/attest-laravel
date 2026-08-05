@@ -2996,7 +2996,7 @@ Set these env vars:
 ```env
 ATTEST_CONNECTION=mysql           # or pgsql or sqlite (defaults to the app's default connection)
 ATTEST_SIGNING_KEY_SEED=<base64>  # 32-byte Ed25519 seed
-ATTEST_SIGNING_KEY_ID=station-prod-2026-01
+ATTEST_SIGNING_KEY_ID=app-prod-2026-01
 ```
 
 ## Use
