@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **Queryable `correlation`, `subject`, and `tenant` projection columns on `attest_envelopes`** ([#1](https://github.com/fissible/attest-laravel/issues/1)). These are first-class signed envelope fields, but until now they lived only inside `raw_envelope`, so "every envelope for correlation X" cost a full chain scan with a JSON decode per row — or forced a consumer to maintain its own side index table, which is exactly the mutable store this package exists to avoid.
+- `AttestEnvelope::forCorrelation()`, `forSubject()`, and `forTenant()` query scopes, plus `AttestEnvelope::signed()` to decode the projected artifact. `forCorrelation()` and `forSubject()` order oldest-first by `created_at` with `envelope_id` as tiebreaker, and are deliberately not chain-scoped — a correlation id is assigned by the writing application, so an application sharding one chain per tenant still expects a single answer across chains.
+- `attest:integrity:audit` now covers the three new columns. Blanking a projection column hides a row from correlation queries while the chain still verifies clean, because the signed bytes are untouched; the audit is what catches that, so it must.
+
+### Changed
+- The new migration backfills the projection from `raw_envelope` for envelopes written before it, in chunks of 500. Without it, existing evidence would stay invisible to every correlation query. Rows whose raw bytes cannot be decoded are skipped rather than aborting the schema change — that is a pre-existing integrity problem for `attest:integrity:audit` to surface, not something a backfill should mask.
+
 ## [1.0.0-beta.3] — 2026-06-13
 
 ### Removed

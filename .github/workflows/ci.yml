@@ -111,3 +111,20 @@ jobs:
         run: |
           rm -f /tmp/attest-concurrency.sqlite
           vendor/bin/phpunit --filter EloquentConcurrencyTest --colors=always
+
+  # Single stable required status check for branch protection. The matrix job
+  # names embed their matrix values, so requiring them directly means any
+  # matrix edit silently drops a required check. Gate on this instead.
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+    steps:
+      - name: Require every matrix job to have succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "One or more matrix jobs did not succeed: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+
+      - run: echo "Full matrix succeeded."

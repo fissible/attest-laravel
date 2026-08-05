@@ -57,6 +57,57 @@ final class IntegrityAuditTest extends TestCase
         }
     }
 
+    public function test_reports_provenance_projection_drift(): void
+    {
+        $records = $this->buildChain(
+            $this->store(),
+            'provenance',
+            2,
+            subject: 'order:42',
+            correlation: 'invocation-123',
+            tenant: 'acme',
+        );
+
+        DB::table('attest_envelopes')
+            ->where('chain_id', 'provenance')
+            ->where('sequence', 2)
+            ->update(['subject' => 'order:99', 'tenant' => 'globex']);
+
+        $result = $this->service()->audit('provenance');
+
+        self::assertSame(2, $result->checkedCount);
+        self::assertCount(2, $result->drifts);
+        self::assertSame(['subject', 'tenant'], array_map(
+            static fn ($drift) => $drift->column,
+            $result->drifts,
+        ));
+        self::assertSame('order:99', $result->drifts[0]->stored);
+        self::assertSame($records[1]->envelope->subject, $result->drifts[0]->computed);
+        self::assertSame('globex', $result->drifts[1]->stored);
+        self::assertSame($records[1]->envelope->tenant, $result->drifts[1]->computed);
+    }
+
+    /**
+     * Blanking a projection column hides the row from correlation queries while
+     * the chain still verifies clean — the signed bytes are untouched. The audit
+     * is the only thing that catches it, so it must.
+     */
+    public function test_reports_blanked_correlation_as_drift(): void
+    {
+        $this->buildChain($this->store(), 'blanked', 1, correlation: 'invocation-123');
+
+        DB::table('attest_envelopes')
+            ->where('chain_id', 'blanked')
+            ->update(['correlation' => null]);
+
+        $result = $this->service()->audit('blanked');
+
+        self::assertCount(1, $result->drifts);
+        self::assertSame('correlation', $result->drifts[0]->column);
+        self::assertNull($result->drifts[0]->stored);
+        self::assertSame('invocation-123', $result->drifts[0]->computed);
+    }
+
     public function test_range_limits_checked_rows(): void
     {
         $this->buildChain($this->store(), 'range', 3);
@@ -96,12 +147,24 @@ final class IntegrityAuditTest extends TestCase
     /**
      * @return list<SignedEnvelope>
      */
-    private function buildChain(ChainStore $store, string $chainId, int $count): array
-    {
+    private function buildChain(
+        ChainStore $store,
+        string $chainId,
+        int $count,
+        ?string $subject = null,
+        ?string $correlation = null,
+        ?string $tenant = null,
+    ): array {
         $chain = EvidenceChain::open($store, $chainId, $this->signer);
         $records = [];
         for ($i = 1; $i <= $count; $i++) {
-            $records[] = $chain->record('app.event', ['n' => $i]);
+            $records[] = $chain->record(
+                'app.event',
+                ['n' => $i],
+                subject: $subject,
+                correlation: $correlation,
+                tenant: $tenant,
+            );
         }
 
         return $records;

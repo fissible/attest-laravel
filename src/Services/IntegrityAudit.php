@@ -46,6 +46,9 @@ final class IntegrityAudit
             $this->compare($drifts, $rowSequence, 'self_hash', (string) $row->self_hash, $signed->selfHash());
             $this->compare($drifts, $rowSequence, 'key_id', (string) $row->key_id, $signed->envelope->keyId);
             $this->compare($drifts, $rowSequence, 'type', (string) $row->type, $signed->envelope->type);
+            $this->compare($drifts, $rowSequence, 'correlation', $this->nullableString($row->correlation), $signed->envelope->correlation);
+            $this->compare($drifts, $rowSequence, 'subject', $this->nullableString($row->subject), $signed->envelope->subject);
+            $this->compare($drifts, $rowSequence, 'tenant', $this->nullableString($row->tenant), $signed->envelope->tenant);
             $this->compare(
                 $drifts,
                 $rowSequence,
@@ -79,6 +82,12 @@ final class IntegrityAudit
             stored: $stored,
             computed: $computed,
         );
+    }
+
+    /** Keep null distinct from '' so a blanked projection column reads as drift. */
+    private function nullableString(mixed $value): ?string
+    {
+        return $value === null ? null : (string) $value;
     }
 
     private function normalizeStoredTimestamp(mixed $value): string
