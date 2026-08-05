@@ -89,19 +89,7 @@ final class HeaderProviderResolver
     {
         $factory = $this->httpStackFactory;
         if ($factory !== null) {
-            $stack = $factory();
-            if (! is_array($stack) || ! isset($stack[0], $stack[1], $stack[2])) {
-                throw new \RuntimeException('HTTP stack factory must return [ClientInterface, RequestFactoryInterface, StreamFactoryInterface].');
-            }
-            [$http, $requests, $streams] = $stack;
-            if (! $http instanceof ClientInterface
-                || ! $requests instanceof RequestFactoryInterface
-                || ! $streams instanceof StreamFactoryInterface
-            ) {
-                throw new \RuntimeException('HTTP stack factory must return [ClientInterface, RequestFactoryInterface, StreamFactoryInterface].');
-            }
-
-            return [$http, $requests, $streams];
+            return $this->assertHttpStack($factory());
         }
 
         if (! $this->hasOptionalHttpStack()) {
@@ -115,6 +103,33 @@ final class HeaderProviderResolver
         $factory = new \GuzzleHttp\Psr7\HttpFactory();
 
         return [$http, $factory, $factory];
+    }
+
+    /**
+     * Validate what a caller-supplied factory actually returned.
+     *
+     * Takes mixed rather than the declared tuple on purpose: the factory's
+     * return type is a docblock promise from consumer code, not something the
+     * runtime enforces, so this has to check. Narrowing the parameter would let
+     * a static analyser assume the promise and delete the checks.
+     *
+     * @return array{0:ClientInterface,1:RequestFactoryInterface,2:StreamFactoryInterface}
+     */
+    private function assertHttpStack(mixed $stack): array
+    {
+        if (! is_array($stack) || ! isset($stack[0], $stack[1], $stack[2])) {
+            throw new \RuntimeException('HTTP stack factory must return [ClientInterface, RequestFactoryInterface, StreamFactoryInterface].');
+        }
+
+        [$http, $requests, $streams] = $stack;
+        if (! $http instanceof ClientInterface
+            || ! $requests instanceof RequestFactoryInterface
+            || ! $streams instanceof StreamFactoryInterface
+        ) {
+            throw new \RuntimeException('HTTP stack factory must return [ClientInterface, RequestFactoryInterface, StreamFactoryInterface].');
+        }
+
+        return [$http, $requests, $streams];
     }
 
     private function hasOptionalHttpStack(): bool
