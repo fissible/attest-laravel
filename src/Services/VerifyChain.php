@@ -15,6 +15,9 @@ use Fissible\AttestLaravel\Support\HeaderProviderResolver;
 use Fissible\AttestLaravel\Support\TrustedKeyResolver;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
+/**
+ * @internal
+ */
 final class VerifyChain
 {
     /** @var (callable(?string, ?string, ?string): HeaderProviderSet)|null */

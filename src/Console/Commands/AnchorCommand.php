@@ -15,6 +15,9 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
+/**
+ * @internal
+ */
 final class AnchorCommand extends Command
 {
     protected $signature = 'attest:anchor

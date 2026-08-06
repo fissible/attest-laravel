@@ -20,6 +20,9 @@ use Fissible\AttestLaravel\Support\TrustedKeyResolver;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use ParagonIE\ConstantTime\Base64;
 
+/**
+ * @internal
+ */
 final class BundleOperations
 {
     /** @var (callable(?string, ?string, ?string): HeaderProviderSet)|null */

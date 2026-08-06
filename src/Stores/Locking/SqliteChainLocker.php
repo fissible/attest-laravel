@@ -6,6 +6,9 @@ namespace Fissible\AttestLaravel\Stores\Locking;
 use Fissible\Attest\Chain\ChainLockUnavailable;
 use Illuminate\Database\Connection;
 
+/**
+ * @internal
+ */
 final class SqliteChainLocker implements ChainLocker
 {
     public function __construct(

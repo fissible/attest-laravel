@@ -5,6 +5,9 @@ namespace Fissible\AttestLaravel\Stores\Locking;
 
 use Fissible\Attest\Chain\ChainLockUnavailable;
 
+/**
+ * @api
+ */
 interface ChainLocker
 {
     /**

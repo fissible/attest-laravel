@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Fissible\AttestLaravel\Support;
 
+/**
+ * @internal
+ */
 final class Timestamp
 {
     /** Canonical wire format used for every attest write. UTC,

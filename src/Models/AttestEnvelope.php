@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property ?string $tenant
  * @property string $raw_envelope
  * @property \Illuminate\Support\Carbon $created_at
+ * @api
  */
 final class AttestEnvelope extends Model
 {

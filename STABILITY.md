@@ -4,11 +4,9 @@
 This document defines what "stable" will cover from **v1.0.0** onward, following
 [semantic versioning](https://semver.org/).
 
-> **Status: provisional (1.0 beta).** The surface below is the *proposed* 1.0 contract. It is
-> tacitly frozen for the duration of the consumer soak (`v1.0.0-beta.*`) and becomes binding at
-> `1.0.0`. Until then it may still shift in response to soak feedback. The `@api` / `@internal`
-> docblock annotations land in source as part of the `1.0.0` cut; until then **this document is
-> the authoritative description of the intended surface.**
+> **Status: binding as of `1.0.0`.** The surface below is the supported `1.x` contract, and the
+> `@api` / `@internal` docblock annotations in source match it class for class. Where the two ever
+> disagree, that is a bug in one of them — report it.
 
 This adapter sits on top of core's own guarantees — see
 [`fissible/attest`'s `STABILITY.md`](https://github.com/fissible/attest/blob/main/STABILITY.md)
@@ -70,7 +68,13 @@ shape is a compatibility surface.
 `protected` extension hooks: `importer()`, `parseLine()`, `buildPayload()`, `chainIdFor()`,
 `contentHashFor()`, `importMarkerConnection()`), `Import\EloquentImportMarkerTrait`,
 `Import\JsonlImportContext`, `Import\JsonlImportOptions`, `Import\JsonlImportResult`,
-`Import\JsonlImportFailure`, `Import\JsonlImportException`, `Import\AlreadyImported`.
+`Import\JsonlImportFailure`, `Import\JsonlImportException`.
+
+`Import\AlreadyImported` is **not** part of this surface, despite having been listed here while the
+contract was provisional. It is control flow internal to `GenericJsonlImporter`: the base throws it
+inside the append callback to roll back a concurrent duplicate, and catches it itself. A consumer
+never sees one, so freezing it would have frozen an implementation detail. It is annotated
+`@internal` in source.
 
 **Service registration** — `AttestServiceProvider`. The container bindings it registers (the core
 `ChainStore`, `RawChainStore`, `AnchorClaimStore`, `Signer`, `ChainLocker`, and `AttestRegistry`)

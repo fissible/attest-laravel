@@ -15,6 +15,9 @@ use Fissible\AttestLaravel\Support\Timestamp;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
 
+/**
+ * @api
+ */
 final class EloquentChainStore implements ChainStore, RawChainStore
 {
     public function __construct(

@@ -8,6 +8,9 @@ use Fissible\Attest\Chain\ChainStore;
 use Fissible\Attest\Chain\EvidenceChain;
 use Fissible\Attest\Signing\Signer;
 
+/**
+ * @api
+ */
 final class AttestRegistry
 {
     public function __construct(

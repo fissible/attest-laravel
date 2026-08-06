@@ -7,6 +7,9 @@ use Fissible\Attest\Verification\TrustedKey;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use ParagonIE\ConstantTime\Base64;
 
+/**
+ * @internal
+ */
 final class TrustedKeyResolver
 {
     public function __construct(private readonly ConfigRepository $config)

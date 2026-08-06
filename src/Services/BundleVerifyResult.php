@@ -5,6 +5,9 @@ namespace Fissible\AttestLaravel\Services;
 
 use Fissible\Attest\Verification\VerificationResult;
 
+/**
+ * @internal
+ */
 final readonly class BundleVerifyResult
 {
     public function __construct(

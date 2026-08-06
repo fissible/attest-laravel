@@ -10,6 +10,9 @@ use Fissible\AttestLaravel\Support\CommandJson;
 use Fissible\AttestLaravel\Support\VerificationExitCode;
 use Illuminate\Console\Command;
 
+/**
+ * @internal
+ */
 final class BundleVerifyCommand extends Command
 {
     protected $signature = 'attest:bundle:verify

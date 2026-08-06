@@ -9,6 +9,9 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\DatabaseManager;
 
+/**
+ * @internal
+ */
 final class IntegrityAudit
 {
     public function __construct(

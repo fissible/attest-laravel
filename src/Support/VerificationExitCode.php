@@ -5,6 +5,9 @@ namespace Fissible\AttestLaravel\Support;
 
 use Fissible\Attest\Verification\VerificationOutcome;
 
+/**
+ * @internal
+ */
 final class VerificationExitCode
 {
     /**

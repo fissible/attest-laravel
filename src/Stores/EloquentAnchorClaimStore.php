@@ -8,6 +8,9 @@ use Fissible\Attest\Anchor\AnchorClaimStore;
 use Fissible\AttestLaravel\Support\Timestamp;
 use Illuminate\Database\ConnectionInterface;
 
+/**
+ * @api
+ */
 final class EloquentAnchorClaimStore implements AnchorClaimStore
 {
     public function __construct(private readonly ConnectionInterface $connection)

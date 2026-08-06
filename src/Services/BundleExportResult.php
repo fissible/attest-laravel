@@ -5,6 +5,9 @@ namespace Fissible\AttestLaravel\Services;
 
 use Fissible\Attest\Verification\Warning;
 
+/**
+ * @internal
+ */
 final readonly class BundleExportResult
 {
     /**

@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Illuminate\Support\Carbon $claimed_at
  * @property ?\Illuminate\Support\Carbon $completed_at
  * @property ?string $completed_envelope_id
+ * @api
  */
 final class AttestAnchorClaim extends Model
 {

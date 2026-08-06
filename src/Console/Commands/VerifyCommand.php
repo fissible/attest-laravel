@@ -10,6 +10,9 @@ use Fissible\AttestLaravel\Support\VerificationExitCode;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
+/**
+ * @internal
+ */
 final class VerifyCommand extends Command
 {
     protected $signature = 'attest:verify

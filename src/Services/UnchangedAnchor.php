@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Fissible\AttestLaravel\Services;
 
+/**
+ * @internal
+ */
 final readonly class UnchangedAnchor
 {
     public function __construct(
