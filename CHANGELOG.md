@@ -1,6 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.0] — 2026-08-05
+
+First stable release, graduating the `1.0.0-beta` line. From here `fissible/attest-laravel` follows semantic versioning — the supported public API is the set of types marked `@api`. See [`STABILITY.md`](STABILITY.md).
 
 ### Added
 - **Queryable `correlation`, `subject`, and `tenant` projection columns on `attest_envelopes`** ([#1](https://github.com/fissible/attest-laravel/issues/1)). These are first-class signed envelope fields, but until now they lived only inside `raw_envelope`, so "every envelope for correlation X" cost a full chain scan with a JSON decode per row — or forced a consumer to maintain its own side index table, which is exactly the mutable store this package exists to avoid.
@@ -8,6 +10,8 @@
 - `attest:integrity:audit` now covers the three new columns. Blanking a projection column hides a row from correlation queries while the chain still verifies clean, because the signed bytes are untouched; the audit is what catches that, so it must.
 
 ### Changed
+- **Every class in `src/` now carries the `@api` or `@internal` annotation STABILITY.md describes** — 17 public, 31 implementation detail, classified from that document's "The `@api` surface" section. The contract was written for 1.0.0 but had never been expressed in source, so the two could not be checked against each other.
+- `Import\AlreadyImported` is `@internal`, not `@api`. It was listed as public while the contract was provisional, but it is control flow inside `GenericJsonlImporter`: the base throws it in the append callback to roll back a concurrent duplicate and catches it itself. A consumer never sees one, so freezing it would have frozen an implementation detail.
 - The new migration backfills the projection from `raw_envelope` for envelopes written before it, in chunks of 500. Without it, existing evidence would stay invisible to every correlation query. Rows whose raw bytes cannot be decoded are skipped rather than aborting the schema change — that is a pre-existing integrity problem for `attest:integrity:audit` to surface, not something a backfill should mask.
 
 ## [1.0.0-beta.3] — 2026-06-13
