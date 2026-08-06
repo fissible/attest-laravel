@@ -10,6 +10,9 @@ use Fissible\AttestLaravel\Support\CommandJson;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
+/**
+ * @internal
+ */
 final class BundleExportCommand extends Command
 {
     protected $signature = 'attest:bundle:export

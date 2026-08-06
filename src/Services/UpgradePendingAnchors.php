@@ -14,6 +14,9 @@ use Fissible\Attest\Verification\AnchorSetResolver;
 use Fissible\Attest\Verification\ResolvedAnchor;
 use Fissible\AttestLaravel\Support\AnchorDriverResolver;
 
+/**
+ * @internal
+ */
 final class UpgradePendingAnchors
 {
     public function __construct(

@@ -25,6 +25,9 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use ParagonIE\ConstantTime\Base64;
 
+/**
+ * @api
+ */
 final class AttestServiceProvider extends ServiceProvider
 {
     public function register(): void

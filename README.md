@@ -2,7 +2,7 @@
 
 > Laravel adapter for [`fissible/attest`](https://github.com/fissible/attest): Eloquent storage, Artisan commands, queue-ready anchoring, and events.
 
-**Status:** 1.0.0 beta — the public API is frozen for consumer soak and stabilizes at `1.0.0`. Built on the stable [`fissible/attest`](https://github.com/fissible/attest) 1.x core.
+**Status:** Stable — v1.0+. The public API (types marked `@api`) follows semantic versioning; see [`STABILITY.md`](STABILITY.md). Built on the stable [`fissible/attest`](https://github.com/fissible/attest) 1.x core. Anchoring inherits core's `@experimental` status in `1.x`.
 
 ---
 
@@ -64,9 +64,6 @@ php artisan vendor:publish --tag=attest-config
 php artisan vendor:publish --tag=attest-migrations
 php artisan migrate
 ```
-
-> **During the 1.0 beta**, require the prerelease explicitly (Composer will not select it by
-> default): `composer require fissible/attest-laravel:^1.0.0-beta`.
 
 Requires PHP `^8.2` and Laravel 12 or 13. (Laravel 13 requires PHP `^8.3`; PHP 8.2 is supported
 on Laravel 12.) Migrations also auto-load if you do not want to publish them.

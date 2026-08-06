@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static EvidenceChain chain(string $chainId)
  * @method static ChainStore store()
  * @method static AnchorClaimStore claimStore()
+ * @api
  */
 final class Attest extends Facade
 {

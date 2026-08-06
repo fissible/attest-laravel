@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Fissible\AttestLaravel\Import;
 
+/**
+ * @api
+ */
 class JsonlImportException extends \RuntimeException
 {
     public function __construct(

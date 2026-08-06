@@ -8,6 +8,9 @@ use Fissible\Attest\Verification\VerificationResult;
 use Fissible\Attest\Verification\Warning;
 use Illuminate\Console\OutputStyle;
 
+/**
+ * @internal
+ */
 final class CommandJson
 {
     /** @return array<string, mixed> */

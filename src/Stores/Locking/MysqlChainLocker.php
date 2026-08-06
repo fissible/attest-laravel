@@ -7,6 +7,9 @@ use Fissible\Attest\Chain\ChainLockUnavailable;
 use Fissible\AttestLaravel\Support\ChainIdHasher;
 use Illuminate\Database\ConnectionInterface;
 
+/**
+ * @internal
+ */
 final class MysqlChainLocker implements ChainLocker
 {
     public function __construct(

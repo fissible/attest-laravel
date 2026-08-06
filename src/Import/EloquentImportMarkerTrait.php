@@ -6,6 +6,9 @@ namespace Fissible\AttestLaravel\Import;
 use Fissible\AttestLaravel\Support\Timestamp;
 use Illuminate\Database\ConnectionInterface;
 
+/**
+ * @api
+ */
 trait EloquentImportMarkerTrait
 {
     abstract protected function importMarkerConnection(): ConnectionInterface;

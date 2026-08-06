@@ -9,6 +9,9 @@ use Fissible\Attest\Anchor\OpenTimestamps\OpenTimestampsCalendarClient;
 use Fissible\Attest\Anchor\OpenTimestampsDriver;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 
+/**
+ * @internal
+ */
 final class AnchorDriverResolver
 {
     /** @var (callable(): OpenTimestampsCalendarClient)|null */

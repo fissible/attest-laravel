@@ -15,6 +15,9 @@ use Fissible\Attest\Signing\Signer;
 use Fissible\Attest\Verification\Warning;
 use Fissible\AttestLaravel\Support\AnchorDriverResolver;
 
+/**
+ * @internal
+ */
 final class AnchorRangeRunner
 {
     public const WARNING_CLAIM_HELD = 'anchor_claim_held';

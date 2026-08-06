@@ -11,6 +11,9 @@ use Fissible\Attest\Envelope\SignedEnvelope;
 use Fissible\Attest\Signing\Signer;
 use Symfony\Component\Uid\Ulid;
 
+/**
+ * @api
+ */
 abstract class GenericJsonlImporter
 {
     public function __construct(

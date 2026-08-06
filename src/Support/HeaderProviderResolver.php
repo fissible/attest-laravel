@@ -11,6 +11,9 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
+/**
+ * @internal
+ */
 final class HeaderProviderResolver
 {
     /** @var (callable(): array{0:ClientInterface,1:RequestFactoryInterface,2:StreamFactoryInterface})|null */
