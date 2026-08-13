@@ -138,7 +138,7 @@ final class EloquentConcurrencyTest extends TestCase
         $conn = DB::connection();
         $locker = match ($conn->getDriverName()) {
             'sqlite' => new SqliteChainLocker($conn, 30),
-            'mysql' => new MysqlChainLocker($conn, 30),
+            'mysql', 'mariadb' => new MysqlChainLocker($conn, 30),
             'pgsql' => new PostgresChainLocker($conn, 30, 50_000),
             default => throw new \RuntimeException('unsupported driver'),
         };

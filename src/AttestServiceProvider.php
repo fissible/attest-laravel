@@ -42,7 +42,9 @@ final class AttestServiceProvider extends ServiceProvider
             $timeout = (int) $config->get('attest.lock_timeout_seconds', 10);
             return match ($driver) {
                 'sqlite' => new SqliteChainLocker($conn, $timeout),
-                'mysql' => new MysqlChainLocker($conn, $timeout),
+                // MariaDB provides GET_LOCK/RELEASE_LOCK with the same semantics MysqlChainLocker
+                // relies on, including holding several named locks on one connection (10.0.2+).
+                'mysql', 'mariadb' => new MysqlChainLocker($conn, $timeout),
                 'pgsql' => new PostgresChainLocker(
                     $conn,
                     $timeout,
@@ -134,6 +136,7 @@ final class AttestServiceProvider extends ServiceProvider
     {
         switch ($conn->getDriverName()) {
             case 'mysql':
+            case 'mariadb':
                 $conn->statement("SET time_zone = '+00:00'");
                 break;
             case 'pgsql':

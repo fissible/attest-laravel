@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **MariaDB connections can boot the package** ([#6](https://github.com/fissible/attest-laravel/issues/6)). Laravel reports a MariaDB connection under its own driver name, `mariadb` — `MariaDbConnection` extends `MySqlConnection`, but `getDriverName()` returns the configured driver string rather than the parent's. Both driver switches in `AttestServiceProvider` handled only `sqlite`, `mysql`, and `pgsql`, so registering the `ChainLocker` threw `RuntimeException: Unsupported DB driver for attest: mariadb` and the package could not be used on MariaDB at all.
+
+  `forceUtc()` carried the same omission, and it is the more dangerous half: the locker threw first, so nothing reached it, but fixing only the locker would have unmasked it and replaced a loud boot failure with silently non-UTC envelope timestamps. Both arms are fixed together. MariaDB now shares `MysqlChainLocker`, which is correct rather than merely convenient — `GET_LOCK`/`RELEASE_LOCK` behave as that locker assumes, including holding several named locks on one connection from MariaDB 10.0.2 onward.
+
+  Found by `fissible/verdict`, whose concurrency matrix runs MySQL, PostgreSQL, and MariaDB; the MariaDB leg failed 5 tests, all tracing into this provider.
+
+### Changed
+- CI runs a MariaDB 11 leg. The matrix covered `mysql8`, `pgsql16`, and `sqlite`, and a green MySQL leg says nothing about the `mariadb` driver string — which is precisely why this defect shipped in 1.0.0.
+
 ## [1.0.0] — 2026-08-05
 
 First stable release, graduating the `1.0.0-beta` line. From here `fissible/attest-laravel` follows semantic versioning — the supported public API is the set of types marked `@api`. See [`STABILITY.md`](STABILITY.md).

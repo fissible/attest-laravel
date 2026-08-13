@@ -28,7 +28,7 @@ final class EloquentChainStoreReadTest extends TestCase
     {
         return match ($conn->getDriverName()) {
             'sqlite' => new SqliteChainLocker($conn, 5),
-            'mysql' => new MysqlChainLocker($conn, 5),
+            'mysql', 'mariadb' => new MysqlChainLocker($conn, 5),
             'pgsql' => new PostgresChainLocker($conn, 5, 50_000),
             default => throw new \RuntimeException('unsupported driver: ' . $conn->getDriverName()),
         };
