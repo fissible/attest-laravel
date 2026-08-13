@@ -17,15 +17,15 @@ abstract class TestCase extends Orchestra
     protected function defineEnvironment($app): void
     {
         $driver = getenv('DB_CONNECTION') ?: 'sqlite';
-        if (! in_array($driver, ['sqlite', 'mysql', 'pgsql'], true)) {
-            throw new \RuntimeException("Unknown DB_CONNECTION: '$driver'. Expected sqlite, mysql, or pgsql.");
+        if (! in_array($driver, ['sqlite', 'mysql', 'mariadb', 'pgsql'], true)) {
+            throw new \RuntimeException("Unknown DB_CONNECTION: '$driver'. Expected sqlite, mysql, mariadb, or pgsql.");
         }
         $app['config']->set('database.default', $driver);
         $app['config']->set("database.connections.$driver", $this->driverConfig($driver));
     }
 
     /**
-     * @param 'sqlite'|'mysql'|'pgsql' $driver
+     * @param 'sqlite'|'mysql'|'mariadb'|'pgsql' $driver
      * @return array<string,mixed>
      */
     private function driverConfig(string $driver): array
@@ -36,8 +36,8 @@ abstract class TestCase extends Orchestra
                 'database' => getenv('DB_DATABASE') ?: ':memory:',
                 'foreign_key_constraints' => true,
             ],
-            'mysql' => [
-                'driver' => 'mysql',
+            'mysql', 'mariadb' => [
+                'driver' => $driver,
                 'host' => getenv('DB_HOST') ?: '127.0.0.1',
                 'port' => (int) (getenv('DB_PORT') ?: 3306),
                 'database' => getenv('DB_DATABASE') ?: 'attest',

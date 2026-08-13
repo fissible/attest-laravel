@@ -7,6 +7,7 @@ use Fissible\Attest\Anchor\AnchorClaimStore;
 use Fissible\Attest\Chain\ChainStore;
 use Fissible\AttestLaravel\Facades\Attest;
 use Fissible\AttestLaravel\Stores\EloquentChainStore;
+use Fissible\AttestLaravel\Stores\Locking\ChainLocker;
 use Fissible\AttestLaravel\Support\AttestRegistry;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\DB;
@@ -65,6 +66,33 @@ final class AttestServiceProviderTest extends TestCase
         $signed = Attest::chain('tenant:5')->record('app.event', ['x' => 1]);
         self::assertSame(1, $signed->envelope->seq);
         self::assertSame(1, DB::table('attest_envelopes')->count());
+    }
+
+    public function test_resolving_the_chain_store_forces_a_utc_session_time_zone(): void
+    {
+        $conn = DB::connection();
+        $driver = $conn->getDriverName();
+        if (! in_array($driver, ['mysql', 'mariadb'], true)) {
+            self::markTestSkipped("session time zone is a MySQL-family concern; driver is $driver");
+        }
+
+        // Move the session off UTC first. Without this the server's own default may already be
+        // UTC, and an assertion of '+00:00' would hold whether or not forceUtc() did anything.
+        $conn->statement("SET time_zone = '+07:00'");
+        self::assertSame('+07:00', $this->sessionTimeZone($conn), 'precondition: session moved off UTC');
+
+        $this->app->forgetInstance(ChainStore::class);
+        $this->app->forgetInstance(ChainLocker::class);
+        $this->app->make(ChainStore::class);
+
+        self::assertSame('+00:00', $this->sessionTimeZone($conn));
+    }
+
+    private function sessionTimeZone(\Illuminate\Database\Connection $conn): string
+    {
+        $row = $conn->selectOne('SELECT @@session.time_zone AS tz');
+        self::assertNotNull($row);
+        return (string) $row->tz;
     }
 
     public function test_signer_binding_throws_when_env_missing(): void
