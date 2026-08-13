@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.0.1] — 2026-08-13
 
 ### Fixed
 - **MariaDB connections can boot the package** ([#6](https://github.com/fissible/attest-laravel/issues/6)). Laravel reports a MariaDB connection under its own driver name, `mariadb` — `MariaDbConnection` extends `MySqlConnection`, but `getDriverName()` returns the configured driver string rather than the parent's. Both driver switches in `AttestServiceProvider` handled only `sqlite`, `mysql`, and `pgsql`, so registering the `ChainLocker` threw `RuntimeException: Unsupported DB driver for attest: mariadb` and the package could not be used on MariaDB at all.
