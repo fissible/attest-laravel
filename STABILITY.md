@@ -60,6 +60,12 @@ without knowing how chains are sharded, so narrowing it would be a breaking chan
 **Events** — `Events\EnvelopeRecorded` (public `string $chainId`, core `SignedEnvelope $signed`),
 dispatched after the append transaction commits.
 
+**Programmatic verification** — `Verification\ChainVerifier` (the container-resolved singleton
+whose `verify(Verification\VerificationRequest)` method verifies a chain),
+`Verification\VerificationRequest` (the immutable verification inputs), and
+`Verification\ChainVerificationResult` (the stable outcome and range projection, with the core
+verification result for detail).
+
 **Queue** — `Jobs\AnchorPendingBatch` (constructor signature: `$chainId`, `$fromSeq`, `$toSeq`,
 `$driver`, `$calendarUrls`, `$minCalendars`). Serialized into queue payloads, so its constructor
 shape is a compatibility surface.
@@ -122,6 +128,12 @@ The published `attest` config keys and the `ATTEST_*` environment variable names
 README (`ATTEST_CONNECTION`, `ATTEST_SIGNING_KEY_SEED`, `ATTEST_SIGNING_KEY_ID`,
 `ATTEST_DEFAULT_CHAIN`, `ATTEST_DEFAULT_DRIVER`, `ATTEST_ANCHOR_QUEUE`, `ATTEST_MIN_ANCHOR`) are
 stable surface within `1.x`. New keys may be added with safe defaults.
+
+Header-provider lookups honour a container-bound `Psr\Http\Client\ClientInterface` (PSR-18).
+When bound, the container's PSR-17 `Psr\Http\Message\RequestFactoryInterface` and
+`Psr\Http\Message\StreamFactoryInterface` are used when available; otherwise the package uses
+`guzzlehttp/psr7`'s factory. This lets hosts route Bitcoin Core and Esplora lookups through their
+own HTTP client for proxies, logging, or tests.
 
 ## Framework support
 

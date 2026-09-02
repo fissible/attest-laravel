@@ -15,6 +15,8 @@ use Fissible\AttestLaravel\Stores\Locking\MysqlChainLocker;
 use Fissible\AttestLaravel\Stores\Locking\PostgresChainLocker;
 use Fissible\AttestLaravel\Stores\Locking\SqliteChainLocker;
 use Fissible\AttestLaravel\Support\AttestRegistry;
+use Fissible\AttestLaravel\Support\HeaderProviderResolver;
+use Fissible\AttestLaravel\Verification\ChainVerifier;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -24,6 +26,9 @@ use Illuminate\Database\Events\ConnectionEstablished;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use ParagonIE\ConstantTime\Base64;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
 
 /**
  * @api
@@ -150,13 +155,13 @@ final class AttestServiceProvider extends ServiceProvider
     {
         $services = [
             Support\AnchorDriverResolver::class,
-            Support\HeaderProviderResolver::class,
             Support\TrustedKeyResolver::class,
             Services\AnchorRangeRunner::class,
             Services\UpgradePendingAnchors::class,
             Services\VerifyChain::class,
             Services\BundleOperations::class,
             Services\IntegrityAudit::class,
+            ChainVerifier::class,
         ];
 
         foreach ($services as $service) {
@@ -164,6 +169,48 @@ final class AttestServiceProvider extends ServiceProvider
                 $this->app->singleton($service);
             }
         }
+
+        $this->app->singleton(HeaderProviderResolver::class, function (Container $app): HeaderProviderResolver {
+            return new HeaderProviderResolver(
+                config: $app->make(ConfigRepository::class),
+                httpStackFactory: function () use ($app): ?array {
+                    if (! $app->bound(ClientInterface::class)) {
+                        return null;
+                    }
+
+                    $http = $app->make(ClientInterface::class);
+                    if (! $http instanceof ClientInterface) {
+                        throw new \RuntimeException('Container binding for Psr\\Http\\Client\\ClientInterface must implement ClientInterface.');
+                    }
+
+                    $requests = $app->bound(RequestFactoryInterface::class)
+                        ? $app->make(RequestFactoryInterface::class)
+                        : null;
+                    $streams = $app->bound(StreamFactoryInterface::class)
+                        ? $app->make(StreamFactoryInterface::class)
+                        : null;
+                    if (($requests !== null && ! $requests instanceof RequestFactoryInterface)
+                        || ($streams !== null && ! $streams instanceof StreamFactoryInterface)
+                    ) {
+                        throw new \RuntimeException('Container PSR-17 bindings must implement RequestFactoryInterface and StreamFactoryInterface.');
+                    }
+
+                    if ($requests instanceof RequestFactoryInterface && $streams instanceof StreamFactoryInterface) {
+                        return [$http, $requests, $streams];
+                    }
+
+                    if (! class_exists(\GuzzleHttp\Psr7\HttpFactory::class)) {
+                        throw new \RuntimeException(
+                            'Container-bound Psr\\Http\\Client\\ClientInterface requires Psr\\Http\\Message\\RequestFactoryInterface and Psr\\Http\\Message\\StreamFactoryInterface bindings when guzzlehttp/psr7 is unavailable.',
+                        );
+                    }
+
+                    $factory = new \GuzzleHttp\Psr7\HttpFactory();
+
+                    return [$http, $requests ?? $factory, $streams ?? $factory];
+                },
+            );
+        });
     }
 
     /** @return list<class-string> */
