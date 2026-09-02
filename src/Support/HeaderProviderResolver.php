@@ -16,11 +16,11 @@ use Psr\Http\Message\StreamFactoryInterface;
  */
 final class HeaderProviderResolver
 {
-    /** @var (callable(): array{0:ClientInterface,1:RequestFactoryInterface,2:StreamFactoryInterface})|null */
+    /** @var (callable(): (array{0:ClientInterface,1:RequestFactoryInterface,2:StreamFactoryInterface}|null))|null */
     private $httpStackFactory;
 
     /**
-     * @param (callable(): array{0:ClientInterface,1:RequestFactoryInterface,2:StreamFactoryInterface})|null $httpStackFactory
+     * @param (callable(): (array{0:ClientInterface,1:RequestFactoryInterface,2:StreamFactoryInterface}|null))|null $httpStackFactory
      */
     public function __construct(
         private readonly ConfigRepository $config,
@@ -92,7 +92,10 @@ final class HeaderProviderResolver
     {
         $factory = $this->httpStackFactory;
         if ($factory !== null) {
-            return $this->assertHttpStack($factory());
+            $stack = $this->assertHttpStack($factory());
+            if ($stack !== null) {
+                return $stack;
+            }
         }
 
         if (! $this->hasOptionalHttpStack()) {
@@ -116,10 +119,14 @@ final class HeaderProviderResolver
      * runtime enforces, so this has to check. Narrowing the parameter would let
      * a static analyser assume the promise and delete the checks.
      *
-     * @return array{0:ClientInterface,1:RequestFactoryInterface,2:StreamFactoryInterface}
+     * @return array{0:ClientInterface,1:RequestFactoryInterface,2:StreamFactoryInterface}|null
      */
-    private function assertHttpStack(mixed $stack): array
+    private function assertHttpStack(mixed $stack): ?array
     {
+        if ($stack === null) {
+            return null;
+        }
+
         if (! is_array($stack) || ! isset($stack[0], $stack[1], $stack[2])) {
             throw new \RuntimeException('HTTP stack factory must return [ClientInterface, RequestFactoryInterface, StreamFactoryInterface].');
         }

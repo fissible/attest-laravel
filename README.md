@@ -87,6 +87,10 @@ ATTEST_ANCHOR_QUEUE=anchors
 ATTEST_MIN_ANCHOR=local_only
 ```
 
+Header-provider lookups use a container-bound `Psr\Http\Client\ClientInterface` when one is
+bound. The container's PSR-17 request and stream factories are used when available, otherwise
+`guzzlehttp/psr7` supplies those factories.
+
 OpenTimestamps anchoring and Bitcoin header verification use optional PSR-18/PSR-7 wiring from
 core. This package suggests `guzzlehttp/guzzle` and `guzzlehttp/psr7`; install them when you want
 calendar or header-provider commands to create HTTP clients from config.
@@ -314,6 +318,22 @@ php artisan attest:verify \
 
 Accepted `--min-anchor` values are `local_only`, `pending`, `upgraded_no_headers`,
 `remote_header_confirmed`, and `bitcoin_verified`.
+
+For programmatic verification, resolve the stable verifier from the container:
+
+```php
+use Fissible\AttestLaravel\Verification\ChainVerifier;
+use Fissible\AttestLaravel\Verification\VerificationRequest;
+
+$result = app(ChainVerifier::class)->verify(new VerificationRequest(
+    chainId: 'tenant:5',
+    trustedKeys: ['prod=<base64-public-key>'],
+));
+
+if ($result->isVerified()) {
+    // $result->verifiedThroughSeq is the verified range extent.
+}
+```
 
 ## Bundles
 
